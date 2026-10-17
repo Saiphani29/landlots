@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Building, MapPin, PlusCircle, Search, PhoneCall, ChevronDown, 
-  ShieldCheck, UserCheck, LogOut, KeyRound, Menu, X, Globe, CreditCard
+  ShieldCheck, UserCheck, LogOut, KeyRound, Menu, X, Globe, CreditCard, Car
 } from 'lucide-react';
 import { CITIES } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,8 @@ export default function Navbar({
   onOpenAdminLogin, 
   onOpenAdminDashboard,
   onOpenBuyerPortal,
-  onOpenPaymentPage
+  onOpenPaymentPage,
+  onOpenEstimator
 }) {
   const { currentUser, isAuthenticated, logout } = useAuth();
   const { language, changeLanguage, t } = useTranslation();
@@ -25,19 +26,13 @@ export default function Navbar({
     setMobileMenuOpen(false);
   };
 
-  const languageLabels = {
-    en: 'English',
-    te: 'తెలుగు (Telugu)',
-    hi: 'हिन्दी (Hindi)'
-  };
-
   const isBuyer = currentUser?.role === 'buyer';
 
   return (
     <header className="site-header">
       <div className="container">
         <div className="navbar-inner">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
             {/* Brand Logo with Official SVG */}
             <a href="#" className="brand-logo" onClick={handleNavClick}>
               <img 
@@ -48,12 +43,24 @@ export default function Navbar({
               />
             </a>
 
-            {/* Desktop Navigation Links (Fully Translated) */}
+            {/* Desktop Navigation Links */}
             <ul className="nav-links desktop-only">
               <li><a href="#" className="nav-link active">{t('nav_home')}</a></li>
               <li><a href="#properties" className="nav-link">{t('nav_plots')}</a></li>
               <li><a href="#properties" className="nav-link">{t('nav_agro')}</a></li>
-              <li><a href="#calculators" className="nav-link">{t('nav_tools')}</a></li>
+              <li>
+                <a 
+                  href="#calculators" 
+                  className="nav-link" 
+                  onClick={(e) => { 
+                    e.preventDefault(); 
+                    if (onOpenEstimator) onOpenEstimator(); 
+                  }}
+                  title="Open Slide-Out Land Area Converter & EMI Estimator"
+                >
+                  📐 {t('nav_tools')}
+                </a>
+              </li>
               <li><a href="#agents" className="nav-link">{t('nav_agents')}</a></li>
             </ul>
           </div>
@@ -61,7 +68,7 @@ export default function Navbar({
           {/* Right Header Actions */}
           <div className="header-actions">
             
-            {/* Multi-Language Selector (Desktop & Tablet) */}
+            {/* Multi-Language Selector */}
             <div style={{ position: 'relative' }}>
               <button
                 type="button"
@@ -74,18 +81,18 @@ export default function Navbar({
                   alignItems: 'center',
                   gap: '6px',
                   borderRadius: '9999px',
-                  borderColor: '#cbd5e1',
-                  background: '#FFFFFF',
-                  color: '#141E1A',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  background: 'rgba(15, 35, 58, 0.9)',
+                  color: '#ffffff',
                   cursor: 'pointer'
                 }}
                 title="Change Platform Language"
               >
-                <Globe size={14} color="#0A8DDD" />
+                <Globe size={14} color="#38bdf8" />
                 <span style={{ fontWeight: 600 }}>
                   {language === 'te' ? 'తెలుగు' : language === 'hi' ? 'हिन्दी' : 'English'}
                 </span>
-                <ChevronDown size={12} color="#64748b" />
+                <ChevronDown size={12} color="#94a3b8" />
               </button>
 
               {langDropdownOpen && (
@@ -95,10 +102,10 @@ export default function Navbar({
                     top: '100%',
                     right: 0,
                     marginTop: '6px',
-                    background: '#FFFFFF',
-                    border: '1px solid #e2e8f0',
+                    background: '#0c1a2e',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
                     borderRadius: '12px',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
                     zIndex: 100,
                     minWidth: '160px',
                     overflow: 'hidden'
@@ -121,8 +128,8 @@ export default function Navbar({
                         textAlign: 'left',
                         padding: '10px 14px',
                         fontSize: '0.85rem',
-                        background: language === item.code ? '#e0f2fe' : 'transparent',
-                        color: language === item.code ? '#0369a1' : '#334155',
+                        background: language === item.code ? 'rgba(14, 165, 233, 0.2)' : 'transparent',
+                        color: language === item.code ? '#38bdf8' : '#e2e8f0',
                         fontWeight: language === item.code ? 700 : 500,
                         border: 'none',
                         cursor: 'pointer',
@@ -132,14 +139,14 @@ export default function Navbar({
                       }}
                     >
                       <span>{item.label}</span>
-                      {language === item.code && <span style={{ color: '#0A8DDD', fontWeight: 800 }}>✓</span>}
+                      {language === item.code && <span style={{ color: '#00d68f', fontWeight: 800 }}>✓</span>}
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* City Selector (Desktop) */}
+            {/* City Selector */}
             <div className="desktop-only" style={{ position: 'relative' }}>
               <select 
                 value={selectedCity} 
@@ -153,50 +160,53 @@ export default function Navbar({
                   </option>
                 ))}
               </select>
-              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '10px', pointerEvents: 'none', color: '#64748b' }} />
+              <ChevronDown size={14} style={{ position: 'absolute', right: '10px', top: '10px', pointerEvents: 'none', color: '#94a3b8' }} />
             </div>
 
-            {/* Book Token Quick Trigger */}
+            {/* Free Booking / Site Visit Quick Action */}
             <button
-              onClick={() => onOpenPaymentPage()}
-              className="btn btn-outline desktop-only"
+              onClick={() => onOpenLeadModal({ title: "Book Free Chauffeur AC Cab & Site Inspection" })}
+              className="btn btn-secondary desktop-only"
               style={{
                 fontSize: '0.82rem',
-                padding: '7px 12px',
-                borderColor: '#b6edd1',
-                background: '#eefbf4',
-                color: '#0e7041',
+                padding: '8px 14px',
+                background: 'linear-gradient(135deg, #00b074 0%, #06955a 100%)',
+                color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
-                fontWeight: 600
+                fontWeight: 700,
+                borderRadius: '9999px',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(0, 176, 116, 0.35)',
+                whiteSpace: 'nowrap'
               }}
-              title="Reserve & Pay Plot Token"
+              title="Schedule 100% Free Chauffeur Cab & Site Inspection"
             >
-              <CreditCard size={14} color="#00b074" />
-              <span>{t('nav_book_token')}</span>
+              <Car size={15} color="#ffffff" />
+              <span>Free Booking (Site Visit)</span>
             </button>
 
             {/* If Authenticated: Separate Public Buyer from Internal Staff */}
             {isAuthenticated ? (
               <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {isBuyer ? (
-                  /* PUBLIC BUYER PORTAL TRIGGER */
+                  /* PUBLIC BUYER / USER SPACE TRIGGER */
                   <button
                     onClick={onOpenBuyerPortal}
                     className="btn btn-secondary"
                     style={{
                       padding: '8px 14px',
                       fontSize: '0.85rem',
-                      background: 'linear-gradient(135deg, #0e243d 0%, #081626 100%)',
-                      border: '1px solid rgba(0, 214, 143, 0.4)',
+                      background: 'linear-gradient(135deg, #0e243d 0%, #061e16 100%)',
+                      border: '1px solid rgba(0, 214, 143, 0.5)',
                       color: 'white',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '8px',
                       cursor: 'pointer'
                     }}
-                    title="Open Investor & Buyer Portal"
+                    title="Open User Space / Investor Portal"
                   >
                     <ShieldCheck size={16} color="#00d68f" />
                     <span style={{ fontWeight: 700 }}>{currentUser.name.split(' ')[0]}</span>
@@ -209,7 +219,7 @@ export default function Navbar({
                       fontWeight: 800,
                       letterSpacing: '0.5px'
                     }}>
-                      INVESTOR
+                      USER SPACE
                     </span>
                   </button>
                 ) : (
@@ -248,28 +258,31 @@ export default function Navbar({
                 <button
                   onClick={logout}
                   className="btn btn-outline"
-                  style={{ padding: '8px 10px', color: '#ef4444' }}
+                  style={{ padding: '8px 10px', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
                   title="Sign Out"
                 >
                   <LogOut size={16} />
                 </button>
               </div>
             ) : (
-              /* Public: Admin & Office Portal Login Trigger (Desktop) */
+              /* Public: Sign In & Register */
               <button
                 onClick={onOpenAdminLogin}
                 className="btn btn-outline desktop-only"
                 style={{
                   fontSize: '0.85rem',
                   padding: '8px 14px',
-                  borderColor: '#cbd5e1',
+                  borderColor: 'rgba(28, 211, 89, 0.4)',
+                  color: '#ffffff',
+                  background: 'rgba(28, 211, 89, 0.1)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px'
+                  gap: '6px',
+                  fontWeight: 600
                 }}
               >
-                <KeyRound size={15} color="#0A8DDD" />
-                <span>{t('nav_office_login')}</span>
+                <KeyRound size={15} color="#00d68f" />
+                <span>Sign In / Register</span>
               </button>
             )}
 
@@ -277,6 +290,10 @@ export default function Navbar({
             <button 
               onClick={() => onOpenLeadModal({ title: "List Your Property (Free Seller Consultation)" })}
               className="btn btn-primary nav-post-btn"
+              style={{
+                background: 'linear-gradient(135deg, #0A8DDD 0%, #00b074 100%)',
+                boxShadow: '0 4px 14px rgba(0, 176, 116, 0.35)'
+              }}
             >
               <PlusCircle size={16} />
               <span className="post-btn-text">{t('nav_post_free')}</span>
@@ -287,8 +304,17 @@ export default function Navbar({
               className="mobile-menu-toggle mobile-only"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle Navigation Menu"
+              style={{
+                color: '#ffffff',
+                background: 'rgba(255, 255, 255, 0.1)',
+                padding: '8px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
             >
-              {mobileMenuOpen ? <X size={22} color="#0f172a" /> : <Menu size={22} color="#0f172a" />}
+              {mobileMenuOpen ? <X size={22} color="#ffffff" /> : <Menu size={22} color="#ffffff" />}
             </button>
           </div>
         </div>
@@ -380,12 +406,22 @@ export default function Navbar({
               <li><a href="#" onClick={handleNavClick}>🏠 {t('nav_home')}</a></li>
               <li><a href="#properties" onClick={handleNavClick}>📐 {t('nav_plots')}</a></li>
               <li><a href="#properties" onClick={handleNavClick}>🌾 {t('nav_agro')}</a></li>
-              <li><a href="#calculators" onClick={handleNavClick}>🧮 {t('nav_tools')}</a></li>
+              <li>
+                <a 
+                  href="#calculators" 
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (onOpenEstimator) onOpenEstimator();
+                  }}
+                >
+                  🧮 {t('nav_tools')} (Slide Drawer)
+                </a>
+              </li>
               <li><a href="#agents" onClick={handleNavClick}>🤝 {t('nav_agents')}</a></li>
             </ul>
 
             {/* Mobile Office Login / Console */}
-            <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
+            <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
               {isAuthenticated ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {isBuyer ? (
@@ -397,7 +433,7 @@ export default function Navbar({
                       className="btn btn-secondary"
                       style={{ width: '100%', justifyContent: 'center', background: '#0e243d', borderColor: 'rgba(0, 214, 143, 0.4)' }}
                     >
-                      <ShieldCheck size={16} color="#00d68f" /> Open Investor &amp; Buyer Portal
+                      <ShieldCheck size={16} color="#00d68f" /> Open User Space Portal
                     </button>
                   ) : (
                     <button
@@ -417,7 +453,7 @@ export default function Navbar({
                       setMobileMenuOpen(false);
                     }}
                     className="btn btn-outline"
-                    style={{ width: '100%', justifyContent: 'center', color: '#ef4444' }}
+                    style={{ width: '100%', justifyContent: 'center', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
                   >
                     <LogOut size={16} /> Sign Out ({currentUser.name})
                   </button>
@@ -429,9 +465,17 @@ export default function Navbar({
                     setMobileMenuOpen(false);
                   }}
                   className="btn btn-outline"
-                  style={{ width: '100%', justifyContent: 'center', gap: '8px' }}
+                  style={{
+                    width: '100%',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    borderColor: 'rgba(0, 214, 143, 0.4)',
+                    color: '#ffffff',
+                    background: 'rgba(0, 214, 143, 0.12)',
+                    fontWeight: 700
+                  }}
                 >
-                  <KeyRound size={16} color="#0A8DDD" /> {t('nav_office_login')}
+                  <KeyRound size={16} color="#00d68f" /> Sign In / Create Account
                 </button>
               )}
             </div>

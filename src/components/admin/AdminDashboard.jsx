@@ -65,10 +65,20 @@ const INITIAL_TRANSACTIONS = [
   }
 ];
 
-export default function AdminDashboard({ onBackToWebsite, properties, onAddProperty, leads, onUpdateLeadStatus }) {
+export default function AdminDashboard({ 
+  onBackToWebsite, 
+  properties, 
+  onAddProperty, 
+  leads, 
+  onUpdateLeadStatus,
+  userSubmissions = [],
+  onApproveProperty,
+  onRejectProperty,
+  onOpenDatabaseModal
+}) {
   const { currentUser, officeAccounts, createOfficeAccount, logout } = useAuth();
   
-  // Active Tab: 'accounts' | 'staff' | 'leads' | 'inventory' | 'marketing'
+  // Active Tab: 'accounts' | 'staff' | 'leads' | 'inventory' | 'marketing' | 'approvals' | 'database'
   const [activeTab, setActiveTab] = useState(
     currentUser?.role === 'sales' ? 'leads' : 
     currentUser?.role === 'marketing' ? 'marketing' : 'accounts'
@@ -411,6 +421,60 @@ export default function AdminDashboard({ onBackToWebsite, properties, onAddPrope
             >
               <BarChart3 size={18} />
               <span>Marketing Campaigns &amp; UTM</span>
+            </button>
+
+            {/* Tab: User Property Approvals */}
+            <button
+              onClick={() => setActiveTab('approvals')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: activeTab === 'approvals' ? '#00b074' : 'transparent',
+                color: activeTab === 'approvals' ? 'white' : '#94a3b8',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <ShieldCheck size={18} />
+              <span>User Property Approvals</span>
+              {userSubmissions.filter(s => s.status === 'pending_verification').length > 0 && (
+                <span style={{ marginLeft: 'auto', background: '#f59e0b', color: '#000', fontSize: '0.7rem', padding: '2px 7px', borderRadius: '9999px', fontWeight: 800 }}>
+                  {userSubmissions.filter(s => s.status === 'pending_verification').length} PENDING
+                </span>
+              )}
+            </button>
+
+            {/* Tab: Live Database Inspector */}
+            <button
+              onClick={() => setActiveTab('database')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 14px',
+                borderRadius: '10px',
+                background: activeTab === 'database' ? '#0A8DDD' : 'transparent',
+                color: activeTab === 'database' ? 'white' : '#38bdf8',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '0.9rem',
+                textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Search size={18} />
+              <span>Database Inspector (DB)</span>
+              <span style={{ marginLeft: 'auto', background: 'rgba(56, 189, 248, 0.2)', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', color: '#38bdf8' }}>
+                LIVE
+              </span>
             </button>
           </nav>
 
@@ -806,6 +870,265 @@ export default function AdminDashboard({ onBackToWebsite, properties, onAddPrope
                   <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', margin: '10px 0' }}>112 Inquiries</div>
                   <div style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>Cost Per Lead: <strong>₹0.00</strong></div>
                   <div style={{ fontSize: '0.8rem', color: '#00d68f', marginTop: '4px' }}>Site Visit Conversion: <strong>41.8%</strong></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: USER PROPERTY APPROVALS (Verification Engine) */}
+          {activeTab === 'approvals' && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <div>
+                  <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', margin: 0 }}>
+                    User-Submitted Property Approvals ({userSubmissions.length})
+                  </h1>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                    Inspect user-uploaded photos, revenue surveyor claims, and DTCP LP certificates before publishing live.
+                  </p>
+                </div>
+              </div>
+
+              {userSubmissions.length === 0 ? (
+                <div style={{ background: '#102238', borderRadius: '16px', padding: '48px', textAlign: 'center', border: '1px dashed rgba(255,255,255,0.1)' }}>
+                  <ShieldCheck size={44} color="#64748b" style={{ margin: '0 auto 12px' }} />
+                  <h3 style={{ fontSize: '1.1rem', color: 'white' }}>No Pending User Submissions</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                    When registered buyers or sellers post plots in the User Space with photos, they appear here for admin review.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+                  {userSubmissions.map((sub) => {
+                    const isPending = sub.status === 'pending_verification';
+                    return (
+                      <div 
+                        key={sub.id}
+                        style={{
+                          background: '#102238',
+                          border: isPending ? '1.5px solid rgba(245, 158, 11, 0.5)' : '1px solid rgba(0, 214, 143, 0.4)',
+                          borderRadius: '16px',
+                          overflow: 'hidden',
+                          display: 'flex',
+                          flexDirection: 'column'
+                        }}
+                      >
+                        {/* Image Preview */}
+                        <div style={{ position: 'relative', height: '180px', background: '#091524' }}>
+                          <img 
+                            src={sub.image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&auto=format&fit=crop'} 
+                            alt={sub.title}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
+                          <div style={{
+                            position: 'absolute',
+                            top: '10px',
+                            left: '10px',
+                            background: isPending ? '#f59e0b' : '#00b074',
+                            color: '#000',
+                            padding: '3px 8px',
+                            borderRadius: '9999px',
+                            fontSize: '0.7rem',
+                            fontWeight: 800
+                          }}>
+                            {isPending ? '⏳ PENDING REVIEW' : '✅ APPROVED & LIVE'}
+                          </div>
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '10px',
+                            right: '10px',
+                            background: 'rgba(0,0,0,0.7)',
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            padding: '2px 6px',
+                            borderRadius: '4px'
+                          }}>
+                            {sub.id}
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                          <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'white', marginBottom: '6px' }}>
+                            {sub.title}
+                          </h3>
+
+                          <div style={{ fontSize: '0.82rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '12px' }}>
+                            <MapPin size={13} color="#0A8DDD" /> {sub.location}, {sub.city}
+                          </div>
+
+                          <div style={{
+                            background: 'rgba(255,255,255,0.04)',
+                            padding: '12px',
+                            borderRadius: '10px',
+                            fontSize: '0.8rem',
+                            marginBottom: '14px',
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: '8px'
+                          }}>
+                            <div>
+                              <span style={{ color: '#64748b', display: 'block' }}>Asking Price:</span>
+                              <strong style={{ color: '#00d68f', fontSize: '1rem' }}>{sub.price}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: '#64748b', display: 'block' }}>Area &amp; Facing:</span>
+                              <strong style={{ color: '#ffffff' }}>{sub.area} • {sub.facing}</strong>
+                            </div>
+                            <div>
+                              <span style={{ color: '#64748b', display: 'block' }}>Owner Contact:</span>
+                              <span style={{ color: '#38bdf8', fontWeight: 600 }}>{sub.sellerName}</span>
+                            </div>
+                            <div>
+                              <span style={{ color: '#64748b', display: 'block' }}>Phone:</span>
+                              <span style={{ color: '#cbd5e1' }}>{sub.sellerPhone}</span>
+                            </div>
+                          </div>
+
+                          <div style={{ fontSize: '0.78rem', color: '#cbd5e1', marginBottom: '16px', background: '#091524', padding: '10px', borderRadius: '8px' }}>
+                            <strong>Legal Claims:</strong> {sub.description || sub.approvals?.join(', ')}
+                          </div>
+
+                          {/* Approval Actions */}
+                          {isPending ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '10px', marginTop: 'auto' }}>
+                              <button
+                                onClick={() => {
+                                  if (onApproveProperty) onApproveProperty(sub.id);
+                                  showToast(`Approved ${sub.title}! Listing is now LIVE on commercial catalog.`);
+                                }}
+                                className="btn btn-secondary"
+                                style={{ padding: '10px', fontSize: '0.82rem', justifyContent: 'center', background: '#00b074' }}
+                              >
+                                <CheckCircle size={15} /> Approve &amp; Publish
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (onRejectProperty) onRejectProperty(sub.id);
+                                  showToast(`Rejected submission ${sub.id}`);
+                                }}
+                                className="btn btn-outline"
+                                style={{ padding: '10px', fontSize: '0.82rem', justifyContent: 'center', color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' }}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{
+                              background: 'rgba(0,176,116,0.15)',
+                              color: '#00d68f',
+                              padding: '10px',
+                              borderRadius: '8px',
+                              textAlign: 'center',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                              marginTop: 'auto'
+                            }}>
+                              ✓ Live in Commercial Catalog
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 7: LIVE DATABASE INSPECTOR */}
+          {activeTab === 'database' && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Search size={24} color="#38bdf8" /> Live Database Inspector
+                  </h1>
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                    Connected Engine: SQLite 3 WAL Mode / Postgres DDL. Direct query view into system tables.
+                  </p>
+                </div>
+
+                {onOpenDatabaseModal && (
+                  <button
+                    onClick={onOpenDatabaseModal}
+                    className="btn btn-primary"
+                    style={{ padding: '10px 18px', fontSize: '0.85rem' }}
+                  >
+                    Open Full Database Modal Window
+                  </button>
+                )}
+              </div>
+
+              {/* Table Metrics Strip */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ background: '#102238', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>TABLE: properties</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#00d68f' }}>{properties.length}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Active certified catalog</div>
+                </div>
+
+                <div style={{ background: '#102238', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>TABLE: users</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#38bdf8' }}>{officeAccounts.length + 1}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Office staff &amp; investors</div>
+                </div>
+
+                <div style={{ background: '#102238', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>TABLE: leads</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#f59e0b' }}>{leads.length}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Site visit customer leads</div>
+                </div>
+
+                <div style={{ background: '#102238', padding: '16px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>TABLE: user_submissions</div>
+                  <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#a855f7' }}>{userSubmissions.length}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>User posted plot listings</div>
+                </div>
+              </div>
+
+              {/* Quick Table View */}
+              <div style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'white', margin: 0 }}>
+                    Table: <code>properties</code> (Sample 6 Records)
+                  </h3>
+                  <button 
+                    onClick={() => exportToCSV(properties, 'properties_catalog.csv')}
+                    className="btn btn-outline"
+                    style={{ padding: '6px 12px', fontSize: '0.75rem', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.4)' }}
+                  >
+                    <Download size={13} /> Export CSV
+                  </button>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="db-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Category</th>
+                        <th>Location</th>
+                        <th>Price</th>
+                        <th>Facing</th>
+                        <th>Approvals</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {properties.slice(0, 6).map((p) => (
+                        <tr key={p.id}>
+                          <td style={{ color: '#38bdf8', fontWeight: 700 }}>{p.id}</td>
+                          <td style={{ color: 'white' }}>{p.title}</td>
+                          <td>{p.category}</td>
+                          <td>{p.location}, {p.city}</td>
+                          <td style={{ color: '#00d68f', fontWeight: 700 }}>{p.price}</td>
+                          <td>{p.facing}</td>
+                          <td style={{ fontSize: '0.75rem' }}>{p.approvals?.join(', ')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Ruler, Calculator, ArrowRightLeft, Percent, IndianRupee } from 'lucide-react';
+import { Ruler, Calculator, ArrowRightLeft, Percent, IndianRupee, Sidebar } from 'lucide-react';
 import { convertLandArea, calculateEMI } from '../utils/excelUtils';
 
-export default function ToolsSection() {
+export default function ToolsSection({ onOpenEstimator }) {
   // Land Converter State
   const [areaVal, setAreaVal] = useState("200");
   const [fromUnit, setFromUnit] = useState("sqyds");
@@ -28,16 +28,35 @@ export default function ToolsSection() {
   return (
     <section id="calculators" className="tools-section">
       <div className="container">
-        <div className="section-header" style={{ marginBottom: '28px' }}>
+        <div className="section-header" style={{ marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
           <div>
             <div className="section-tag">
               <Calculator size={16} /> Precision Decision Tools
             </div>
-            <h2 className="section-title">Land Area Converter & Loan EMI Estimator</h2>
+            <h2 className="section-title">Land Area Converter &amp; Loan EMI Estimator</h2>
           </div>
-          <p style={{ color: '#64748b', fontSize: '0.95rem', maxWidth: '420px', textAlign: 'right' }}>
-            Used daily by our sales team and property investors to calculate exact land measurements and monthly repayment schedules.
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', md: 'flex-end', gap: '8px' }}>
+            <p style={{ color: '#64748b', fontSize: '0.92rem', maxWidth: '420px', margin: 0 }}>
+              Used daily by property investors to calculate exact land measurements and monthly loan repayments.
+            </p>
+            {onOpenEstimator && (
+              <button 
+                onClick={onOpenEstimator}
+                className="btn btn-outline"
+                style={{
+                  fontSize: '0.82rem',
+                  padding: '7px 14px',
+                  borderRadius: '9999px',
+                  borderColor: '#0A8DDD',
+                  color: '#0A8DDD',
+                  background: '#f0f9ff',
+                  fontWeight: 700
+                }}
+              >
+                <span>📐 Open in Slide-Out Sidebar</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="tools-grid">
