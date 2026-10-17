@@ -16,6 +16,7 @@ import AdminLoginPage from './components/admin/AdminLoginPage';
 import AdminDashboard from './components/admin/AdminDashboard';
 import PolicyPages from './components/pages/PolicyPages';
 import BookingPaymentPage from './components/BookingPaymentPage';
+import BuyerPortal from './components/buyer/BuyerPortal';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider, useTranslation } from './context/LanguageContext';
@@ -25,14 +26,25 @@ function MainApp() {
   const { isAuthenticated, currentUser } = useAuth();
   const { t } = useTranslation();
 
-  // Navigation View: 'website' | 'admin_login' | 'admin_dashboard' | 'policy_page' | 'booking_payment'
+  // Navigation View: 'website' | 'admin_login' | 'admin_dashboard' | 'policy_page' | 'booking_payment' | 'buyer_portal'
   const [currentView, setCurrentView] = useState('website');
   const [policyPageKey, setPolicyPageKey] = useState('terms');
   const [selectedPropertyForBooking, setSelectedPropertyForBooking] = useState(null);
 
-  // Inventory and Leads State (ready for Excel/DB sync)
+  // Inventory, Leads, and Buyer Saved Plots State
   const [properties, setProperties] = useState(INITIAL_PROPERTIES);
   const [leads, setLeads] = useState(INITIAL_LEADS);
+  const [savedPropertyIds, setSavedPropertyIds] = useState(['LL-PL-101', 'LL-VL-202']);
+
+  const savedProperties = useMemo(() => {
+    return properties.filter(p => savedPropertyIds.includes(p.id));
+  }, [properties, savedPropertyIds]);
+
+  const handleToggleSaveProperty = (propId) => {
+    setSavedPropertyIds(prev => 
+      prev.includes(propId) ? prev.filter(id => id !== propId) : [...prev, propId]
+    );
+  };
 
   // Search & Filter State
   const [selectedCity, setSelectedCity] = useState('All Cities');
@@ -160,18 +172,30 @@ function MainApp() {
     return (
       <AdminLoginPage 
         onBackToHome={() => setCurrentView('website')}
-        onLoginSuccess={() => setCurrentView('admin_dashboard')}
+        onLoginSuccess={(user) => setCurrentView(user?.role === 'buyer' ? 'buyer_portal' : 'admin_dashboard')}
       />
     );
   }
 
-  // VIEW 2: Master Admin & Office Accounts Dashboard (Protected Route Guard)
+  // VIEW 2: Master Admin & Office Accounts Dashboard (Protected Route Guard - STAFF ONLY)
   if (currentView === 'admin_dashboard') {
     if (!isAuthenticated) {
       return (
         <AdminLoginPage 
           onBackToHome={() => setCurrentView('website')}
-          onLoginSuccess={() => setCurrentView('admin_dashboard')}
+          onLoginSuccess={(user) => setCurrentView(user?.role === 'buyer' ? 'buyer_portal' : 'admin_dashboard')}
+        />
+      );
+    }
+
+    // STRICT RBAC PRIVILEGE SEPARATION: Public buyers are never allowed into internal office console
+    if (currentUser?.role === 'buyer') {
+      return (
+        <BuyerPortal 
+          onBackToHome={() => setCurrentView('website')}
+          onOpenBooking={handleOpenBooking}
+          savedProperties={savedProperties}
+          onRemoveSavedProperty={handleToggleSaveProperty}
         />
       );
     }
@@ -187,7 +211,19 @@ function MainApp() {
     );
   }
 
-  // VIEW 3: Designed Legal & Compliance Sub-Pages
+  // VIEW 3: Dedicated Institutional Buyer & Investor Portal
+  if (currentView === 'buyer_portal') {
+    return (
+      <BuyerPortal 
+        onBackToHome={() => setCurrentView('website')}
+        onOpenBooking={handleOpenBooking}
+        savedProperties={savedProperties}
+        onRemoveSavedProperty={handleToggleSaveProperty}
+      />
+    );
+  }
+
+  // VIEW 4: Designed Legal & Compliance Sub-Pages
   if (currentView === 'policy_page') {
     return (
       <PolicyPages 
@@ -198,7 +234,7 @@ function MainApp() {
     );
   }
 
-  // VIEW 4: Dedicated Plot Token Advance & Payment Checkout Page
+  // VIEW 5: Dedicated Plot Token Advance & Payment Checkout Page
   if (currentView === 'booking_payment') {
     return (
       <BookingPaymentPage 
@@ -212,19 +248,20 @@ function MainApp() {
     );
   }
 
-  // VIEW 5: Public Commercial Portal
+  // VIEW 6: Public Commercial Portal
   return (
     <div className="app-container">
       {/* Top Marketing Campaign Bar */}
       <CampaignTopBar onOpenLeadModal={setModalData} />
 
-      {/* Main Header / Navigation with Office Login & Language Trigger */}
+      {/* Main Header / Navigation with Office Login, Buyer Portal & Language Trigger */}
       <Navbar 
         selectedCity={selectedCity} 
         onSelectCity={setSelectedCity} 
         onOpenLeadModal={setModalData}
         onOpenAdminLogin={() => setCurrentView('admin_login')}
         onOpenAdminDashboard={() => setCurrentView('admin_dashboard')}
+        onOpenBuyerPortal={() => setCurrentView('buyer_portal')}
         onOpenPaymentPage={handleOpenBooking}
       />
 

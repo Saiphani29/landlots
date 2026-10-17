@@ -8,18 +8,52 @@ import express from 'express';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { db, initDatabase } from './db.js';
+
+// Twelve-Factor Environment Loader (.env)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootEnvPath = path.resolve(__dirname, '..', '.env');
+
+if (fs.existsSync(rootEnvPath)) {
+  try {
+    if (process.loadEnvFile) {
+      process.loadEnvFile(rootEnvPath);
+    } else {
+      const envRaw = fs.readFileSync(rootEnvPath, 'utf8');
+      envRaw.split('\n').forEach(line => {
+        const m = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+        if (m) {
+          const key = m[1];
+          let val = (m[2] || '').trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (process.env[key] === undefined) process.env[key] = val;
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('[ENV] Note: Native .env loading encountered a warning, using process defaults.');
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'landlots_jwt_master_secret_2026_xyz!#';
+const allowedOrigins = process.env.CORS_ORIGIN 
+  ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) 
+  : ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'];
 
 // Initialize SQLite Schema & Default Seed Data
 initDatabase();
 
 // 1. Core Security Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'],
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
@@ -434,6 +468,92 @@ app.get('/api/stats', authenticateToken, (req, res) => {
     formattedTokenAdvances: `₹${(txSum / 100000).toFixed(2)} Lakhs`,
     databaseEngine: 'SQLite 3 (WAL Mode Active)'
   });
+});
+
+// 12. Buyer Portal: Get Saved Properties
+app.get('/api/buyer/saved', authenticateToken, (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT p.* FROM properties p
+      JOIN buyer_saved_properties b ON p.id = b.property_id
+      WHERE b.user_id = ?
+    `).all(req.user.id);
+
+    const formatted = rows.map(r => ({
+      ...r,
+      approvals: JSON.parse(r.approvals || '[]'),
+      agent: JSON.parse(r.agent_json || '{}'),
+      highlights: JSON.parse(r.highlights_json || '[]'),
+      featured: Boolean(r.featured),
+      trending: Boolean(r.trending)
+    }));
+    res.json(formatted);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
+// 13. Buyer Portal: Save / Bookmark Property
+app.post('/api/buyer/saved', authenticateToken, (req, res) => {
+  const { propertyId } = req.body;
+  if (!propertyId) return res.status(400).json({ error: 'Property ID is required' });
+
+  try {
+    db.prepare(`
+      INSERT OR IGNORE INTO buyer_saved_properties (user_id, property_id, created_at)
+      VALUES (?, ?, ?)
+    `).run(req.user.id, propertyId, new Date().toISOString());
+
+    res.json({ success: true, message: 'Property saved to your investor portfolio.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to bookmark property' });
+  }
+});
+
+// 14. Buyer Portal: Remove Saved Property
+app.delete('/api/buyer/saved/:propertyId', authenticateToken, (req, res) => {
+  try {
+    db.prepare(`
+      DELETE FROM buyer_saved_properties WHERE user_id = ? AND property_id = ?
+    `).run(req.user.id, req.params.propertyId);
+
+    res.json({ success: true, message: 'Property removed from saved portfolio.' });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to remove saved property' });
+  }
+});
+
+// 15. Buyer Portal: Get Scheduled Site Visits
+app.get('/api/buyer/visits', authenticateToken, (req, res) => {
+  try {
+    const visits = db.prepare(`
+      SELECT v.*, p.title as property_title, p.location as property_location, p.city as property_city, p.image as property_image
+      FROM site_visits v
+      LEFT JOIN properties p ON v.property_id = p.id
+      WHERE v.user_id = ?
+      ORDER BY v.created_at DESC
+    `).all(req.user.id);
+
+    res.json(visits);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
+// 16. Buyer Portal: Get Booking Receipts / Token Advances
+app.get('/api/buyer/bookings', authenticateToken, (req, res) => {
+  try {
+    const email = req.user.email || '';
+    const bookings = db.prepare(`
+      SELECT * FROM transactions
+      WHERE buyer_name LIKE ? OR buyer_phone LIKE ?
+      ORDER BY created_at DESC
+    `).all(`%${req.user.name}%`, `%${req.user.phone || ''}%`);
+
+    res.json(bookings);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // Start Express Server

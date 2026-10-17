@@ -13,6 +13,7 @@ export default function Navbar({
   onOpenLeadModal, 
   onOpenAdminLogin, 
   onOpenAdminDashboard,
+  onOpenBuyerPortal,
   onOpenPaymentPage
 }) {
   const { currentUser, isAuthenticated, logout } = useAuth();
@@ -29,6 +30,8 @@ export default function Navbar({
     te: 'తెలుగు (Telugu)',
     hi: 'हिन्दी (Hindi)'
   };
+
+  const isBuyer = currentUser?.role === 'buyer';
 
   return (
     <header className="site-header">
@@ -174,38 +177,73 @@ export default function Navbar({
               <span>{t('nav_book_token')}</span>
             </button>
 
-            {/* If Authenticated: Show Staff / Admin Badge and Console Trigger */}
+            {/* If Authenticated: Separate Public Buyer from Internal Staff */}
             {isAuthenticated ? (
               <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  onClick={onOpenAdminDashboard}
-                  className="btn btn-secondary"
-                  style={{
-                    padding: '8px 14px',
-                    fontSize: '0.85rem',
-                    background: '#0f2942',
-                    border: '1px solid #1e4976',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  title="Open Office Console"
-                >
-                  <ShieldCheck size={16} color="#00d68f" />
-                  <span>{currentUser.name.split(' ')[0]}</span>
-                  <span style={{
-                    background: '#00b074',
-                    color: 'white',
-                    fontSize: '0.65rem',
-                    padding: '1px 6px',
-                    borderRadius: '9999px',
-                    textTransform: 'uppercase',
-                    fontWeight: 800
-                  }}>
-                    {currentUser.role?.replace('_', ' ')}
-                  </span>
-                </button>
+                {isBuyer ? (
+                  /* PUBLIC BUYER PORTAL TRIGGER */
+                  <button
+                    onClick={onOpenBuyerPortal}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: '0.85rem',
+                      background: 'linear-gradient(135deg, #0e243d 0%, #081626 100%)',
+                      border: '1px solid rgba(0, 214, 143, 0.4)',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer'
+                    }}
+                    title="Open Investor & Buyer Portal"
+                  >
+                    <ShieldCheck size={16} color="#00d68f" />
+                    <span style={{ fontWeight: 700 }}>{currentUser.name.split(' ')[0]}</span>
+                    <span style={{
+                      background: '#00b074',
+                      color: 'white',
+                      fontSize: '0.65rem',
+                      padding: '2px 8px',
+                      borderRadius: '9999px',
+                      fontWeight: 800,
+                      letterSpacing: '0.5px'
+                    }}>
+                      INVESTOR
+                    </span>
+                  </button>
+                ) : (
+                  /* INTERNAL STAFF / ADMIN CONSOLE TRIGGER */
+                  <button
+                    onClick={onOpenAdminDashboard}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '8px 14px',
+                      fontSize: '0.85rem',
+                      background: '#0f2942',
+                      border: '1px solid #1e4976',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    title="Open Office Staff Console"
+                  >
+                    <ShieldCheck size={16} color="#0A8DDD" />
+                    <span>{currentUser.name.split(' ')[0]}</span>
+                    <span style={{
+                      background: '#0284c7',
+                      color: 'white',
+                      fontSize: '0.65rem',
+                      padding: '1px 6px',
+                      borderRadius: '9999px',
+                      textTransform: 'uppercase',
+                      fontWeight: 800
+                    }}>
+                      {currentUser.role?.replace('_', ' ')}
+                    </span>
+                  </button>
+                )}
 
                 <button
                   onClick={logout}
@@ -350,16 +388,29 @@ export default function Navbar({
             <div style={{ marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #e2e8f0' }}>
               {isAuthenticated ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <button
-                    onClick={() => {
-                      onOpenAdminDashboard();
-                      setMobileMenuOpen(false);
-                    }}
-                    className="btn btn-secondary"
-                    style={{ width: '100%', justifyContent: 'center' }}
-                  >
-                    <ShieldCheck size={16} /> Open {currentUser.role?.replace('_', ' ')} Console
-                  </button>
+                  {isBuyer ? (
+                    <button
+                      onClick={() => {
+                        onOpenBuyerPortal();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ width: '100%', justifyContent: 'center', background: '#0e243d', borderColor: 'rgba(0, 214, 143, 0.4)' }}
+                    >
+                      <ShieldCheck size={16} color="#00d68f" /> Open Investor &amp; Buyer Portal
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        onOpenAdminDashboard();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="btn btn-secondary"
+                      style={{ width: '100%', justifyContent: 'center' }}
+                    >
+                      <ShieldCheck size={16} /> Open {currentUser.role?.replace('_', ' ')} Console
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       logout();

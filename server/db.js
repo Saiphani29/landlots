@@ -126,6 +126,36 @@ export function initDatabase() {
     );
   `);
 
+  // 6. Buyer Saved Properties (Buyer Portal)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS buyer_saved_properties (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      property_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(user_id, property_id)
+    );
+  `);
+
+  // 7. Buyer Scheduled Site Visits (Buyer Portal)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS site_visits (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      property_id TEXT NOT NULL,
+      visit_date TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      pickup_required INTEGER DEFAULT 1,
+      pickup_address TEXT,
+      cab_status TEXT DEFAULT 'Driver Assigned',
+      driver_name TEXT,
+      driver_phone TEXT,
+      assigned_advisor TEXT,
+      status TEXT DEFAULT 'Confirmed',
+      created_at TEXT NOT NULL
+    );
+  `);
+
   // Seed default office staff with real bcrypt hashes if not already populated
   seedInitialData();
 }

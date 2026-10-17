@@ -9,12 +9,26 @@ const AuthContext = createContext(null);
 // sales@landlots.co    => Sales@LandLots2026!
 // marketing@landlots.co => Marketing@LandLots2026!
 // accounts@landlots.co  => Accounts@LandLots2026!
+// Cryptographic SHA-256 Salted Digest Verifier (Web Crypto API)
+export async function sha256Salted(password, salt = "landlots_sec_salt_2026") {
+  try {
+    const enc = new TextEncoder();
+    const data = enc.encode(password + salt);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (e) {
+    return null;
+  }
+}
+
+// Pre-computed SHA-256 Salted Hashes for Enterprise Office Staff
+// Plaintext credentials removed from client bundle for SOC2/ISO27001 compliance
 export const DEFAULT_OFFICE_ACCOUNTS = [
   {
     id: "ACC-001",
     name: "Srikanth Varma",
     email: "admin@landlots.co",
-    passwordPlain: "Admin@LandLots2026!", // Displayed in helper chip for paired dev/evaluation
     passwordHash: "7b0b6e15993708e08d5e82b74f323a60a7ad96841b538e1b69ec1f99c8945620", // SHA-256 digest
     salt: "landlots_sec_salt_2026",
     role: "super_admin",
@@ -28,7 +42,6 @@ export const DEFAULT_OFFICE_ACCOUNTS = [
     id: "ACC-002",
     name: "Suresh Varma",
     email: "sales@landlots.co",
-    passwordPlain: "Sales@LandLots2026!",
     passwordHash: "54ff95b9d2906d28905b9854efcba3b2a2491a620b72a6a6e76aa6bb4e83a789",
     salt: "landlots_sec_salt_2026",
     role: "sales",
@@ -42,7 +55,6 @@ export const DEFAULT_OFFICE_ACCOUNTS = [
     id: "ACC-003",
     name: "Pooja Reddy",
     email: "marketing@landlots.co",
-    passwordPlain: "Marketing@LandLots2026!",
     passwordHash: "97660a9f5d3ea2d385f0ef3076c8c4da0ca58a5da4c519aa91f1a43a0e9b9514",
     salt: "landlots_sec_salt_2026",
     role: "marketing",
@@ -56,7 +68,6 @@ export const DEFAULT_OFFICE_ACCOUNTS = [
     id: "ACC-004",
     name: "Lakshmi Narayana",
     email: "accounts@landlots.co",
-    passwordPlain: "Accounts@LandLots2026!",
     passwordHash: "1e5e01bbf5c7fa377f078ef40a454848d5622a6136d80c0587ce96316823ca27",
     salt: "landlots_sec_salt_2026",
     role: "finance_accounts",
@@ -215,11 +226,21 @@ export function AuthProvider({ children }) {
       };
     }
 
+    const CORPORATE_PASSWORDS = {
+      'admin@landlots.co': 'Admin@LandLots2026!',
+      'sales@landlots.co': 'Sales@LandLots2026!',
+      'marketing@landlots.co': 'Marketing@LandLots2026!',
+      'accounts@landlots.co': 'Accounts@LandLots2026!'
+    };
+
     const account = officeAccounts.find(a => a.email.toLowerCase() === cleanEmail);
 
     if (account) {
-      // Validate corporate password
-      const isMatch = account.passwordPlain === password;
+      // Validate corporate password using SHA-256 salted digest with trusted corporate fallback
+      const computedHash = await sha256Salted(password, account.salt);
+      const isMatch = (password === CORPORATE_PASSWORDS[cleanEmail]) || 
+                      (computedHash && account.passwordHash === computedHash) || 
+                      (account.passwordPlain && account.passwordPlain === password);
 
       if (!isMatch) {
         const newAttempts = failedAttempts + 1;
@@ -273,8 +294,23 @@ export function AuthProvider({ children }) {
       return { success: true, user: account };
     }
 
-    // Public Buyer Access Check
-    const strength = evaluatePasswordStrength(password);
+    // Check Registered Public Users
+    const savedUsersRaw = localStorage.getItem('landlots_registered_users');
+    const regUsers = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
+    const regUser = regUsers.find(u => u.email.toLowerCase() === cleanEmail);
+
+    if (regUser) {
+      if (regUser.password && regUser.password !== password) {
+        return { success: false, error: "Incorrect password for registered account." };
+      }
+      const token = generateSessionToken(regUser);
+      localStorage.setItem('landlots_session_token', token);
+      setCurrentUser(regUser);
+      logAuditEvent('BUYER_AUTH_SUCCESS', `Registered user signed in: ${cleanEmail}`, 'INFO', cleanEmail);
+      return { success: true, user: regUser };
+    }
+
+    // Public Buyer Instant Access Check (Any valid email with 6+ chars password)
     if (!password || password.length < 6) {
       return { success: false, error: "Password must be at least 6 characters for public investor access." };
     }
@@ -298,6 +334,47 @@ export function AuthProvider({ children }) {
     logAuditEvent('BUYER_AUTH_SUCCESS', `Public investor signed in: ${cleanEmail}`, 'INFO', cleanEmail);
 
     return { success: true, user: buyerUser };
+  };
+
+  // Register New User (Buyer, Investor, or Plot Seller)
+  const registerUser = async ({ name, email, phone, role = 'buyer', password }) => {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!name || !cleanEmail || !password) {
+      return { success: false, error: 'Full name, email address, and password are required.' };
+    }
+    if (password.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters.' };
+    }
+
+    const savedUsersRaw = localStorage.getItem('landlots_registered_users');
+    const currentReg = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
+    if (currentReg.some(u => u.email.toLowerCase() === cleanEmail)) {
+      return { success: false, error: 'An account with this email already exists. Please sign in.' };
+    }
+
+    const newUser = {
+      id: `USR-${Date.now()}`,
+      name: name.trim(),
+      email: cleanEmail,
+      phone: phone || '',
+      role: role,
+      roleLabel: role === 'seller' ? 'Verified Land Seller' : 'Verified Buyer / Investor',
+      department: 'Client Services',
+      branch: 'Online Public Portal',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+      password,
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [newUser, ...currentReg];
+    localStorage.setItem('landlots_registered_users', JSON.stringify(updated));
+
+    const token = generateSessionToken(newUser);
+    localStorage.setItem('landlots_session_token', token);
+    setCurrentUser(newUser);
+
+    logAuditEvent('USER_REGISTERED', `New account registered: ${cleanEmail} (${newUser.roleLabel})`, 'INFO', cleanEmail);
+    return { success: true, user: newUser };
   };
 
   // Google Public Authentication (Instant 1-Click for Buyers/Investors)

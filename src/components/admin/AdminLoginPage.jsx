@@ -31,15 +31,15 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
 
     const res = loginWithEmail(email, password);
     if (res.success) {
-      onLoginSuccess();
+      onLoginSuccess(res.user);
     } else {
       setErrorMsg(res.error || 'Authentication failed. Please verify your credentials.');
     }
   };
 
   const handleGooglePublicSignIn = () => {
-    loginWithGoogle();
-    onLoginSuccess();
+    const user = loginWithGoogle();
+    onLoginSuccess(user);
   };
 
   const handleOfficeFastSwitch = (roleKey) => {
@@ -842,92 +842,25 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
                 </button>
               </form>
 
-              {/* DEMO CREDENTIAL QUICK-FILL HELPER */}
+              {/* CORPORATE GOVERNANCE COMPLIANCE NOTICE */}
               <div style={{
                 marginTop: '28px',
                 paddingTop: '20px',
                 borderTop: '1px solid rgba(255,255,255,0.1)'
               }}>
-                <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <ShieldCheck size={14} color="#00d68f" /> Validated Corporate Passwords (Click to Pre-fill)
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                  <button
-                    type="button"
-                    onClick={() => handlePrefill('admin@landlots.co', 'Admin@LandLots2026!')}
-                    style={{
-                      background: '#132842',
-                      border: '1px solid rgba(0, 176, 116, 0.4)',
-                      color: 'white',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      textAlign: 'left',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    👑 <strong>Super Admin</strong>
-                    <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Admin@LandLots2026!</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePrefill('accounts@landlots.co', 'Accounts@LandLots2026!')}
-                    style={{
-                      background: '#132842',
-                      border: '1px solid rgba(245, 158, 11, 0.4)',
-                      color: 'white',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      textAlign: 'left',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    💼 <strong>Office Accounts</strong>
-                    <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Accounts@LandLots2026!</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePrefill('sales@landlots.co', 'Sales@LandLots2026!')}
-                    style={{
-                      background: '#132842',
-                      border: '1px solid rgba(13, 110, 253, 0.4)',
-                      color: 'white',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      textAlign: 'left',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    📞 <strong>Sales Lead</strong>
-                    <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Sales@LandLots2026!</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePrefill('marketing@landlots.co', 'Marketing@LandLots2026!')}
-                    style={{
-                      background: '#132842',
-                      border: '1px solid rgba(139, 92, 246, 0.4)',
-                      color: 'white',
-                      padding: '8px 10px',
-                      borderRadius: '8px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      textAlign: 'left',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    📈 <strong>Marketing Lead</strong>
-                    <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>Marketing@LandLots2026!</div>
-                  </button>
+                <div style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '10px',
+                  padding: '14px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px'
+                }}>
+                  <ShieldCheck size={18} color="#00d68f" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ fontSize: '0.76rem', color: '#94a3b8', lineHeight: 1.5 }}>
+                    <strong style={{ color: 'white' }}>Enterprise Security Guard:</strong> Access to this management console is strictly restricted to authorized Land Lots personnel under SOC2/NIST RBAC controls. Unapproved access attempts and IP signatures are logged to the tamper-evident audit ledger.
+                  </div>
                 </div>
               </div>
             </div>
