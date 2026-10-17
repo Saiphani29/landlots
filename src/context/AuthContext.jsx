@@ -470,6 +470,7 @@ export function AuthProvider({ children }) {
       officeAccounts,
       loginWithEmail,
       loginWithGoogle,
+      registerUser,
       switchRole,
       createOfficeAccount,
       logout,

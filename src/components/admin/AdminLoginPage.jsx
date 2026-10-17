@@ -6,52 +6,103 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
-  const { loginWithEmail, loginWithGoogle, switchRole, failedAttempts, isLockedOut } = useAuth();
+  const { loginWithEmail, loginWithGoogle, registerUser, switchRole, failedAttempts, isLockedOut } = useAuth();
   
-  // Login Mode: 'public' (Google & Public Buyers) vs 'office' (Sales, Marketing, Accounts, Admin)
+  // Login Mode: 'public' (Buyers & Sellers) vs 'office' (Sales, Marketing, Accounts, Admin)
   const [loginMode, setLoginMode] = useState('public');
+  
+  // Public sub-tab: 'signin' | 'register'
+  const [authTab, setAuthTab] = useState('signin');
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [regName, setRegName] = useState('');
+  const [regPhone, setRegPhone] = useState('');
+  const [regRole, setRegRole] = useState('buyer'); // 'buyer' | 'seller'
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setIsSubmitting(true);
 
-    if (!email) {
-      setErrorMsg('Please enter your email address.');
-      return;
-    }
-    if (!password) {
-      setErrorMsg('Please enter your password.');
-      return;
-    }
+    try {
+      if (loginMode === 'public' && authTab === 'register') {
+        if (!regName.trim()) {
+          setErrorMsg('Please enter your full name.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (!email.trim()) {
+          setErrorMsg('Please enter your email address.');
+          setIsSubmitting(false);
+          return;
+        }
+        if (!password || password.length < 6) {
+          setErrorMsg('Password must be at least 6 characters.');
+          setIsSubmitting(false);
+          return;
+        }
 
-    const res = loginWithEmail(email, password);
-    if (res.success) {
-      onLoginSuccess(res.user);
-    } else {
-      setErrorMsg(res.error || 'Authentication failed. Please verify your credentials.');
+        const res = await registerUser({
+          name: regName.trim(),
+          email: email.trim(),
+          phone: regPhone.trim(),
+          role: regRole,
+          password: password
+        });
+
+        if (res.success) {
+          onLoginSuccess(res.user);
+        } else {
+          setErrorMsg(res.error || 'Registration failed. Please try again.');
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!email) {
+        setErrorMsg('Please enter your email address.');
+        setIsSubmitting(false);
+        return;
+      }
+      if (!password) {
+        setErrorMsg('Please enter your password.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const res = await loginWithEmail(email, password);
+      if (res && res.success) {
+        onLoginSuccess(res.user);
+      } else {
+        setErrorMsg(res?.error || 'Authentication failed. Please verify your credentials.');
+      }
+    } catch (err) {
+      setErrorMsg('Login service error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleGooglePublicSignIn = () => {
-    const user = loginWithGoogle();
-    onLoginSuccess(user);
+    const res = loginWithGoogle();
+    onLoginSuccess(res.user);
   };
 
-  const handleOfficeFastSwitch = (roleKey) => {
-    switchRole(roleKey);
-    onLoginSuccess();
-  };
-
-  // Prefill helper for demo testing
-  const handlePrefill = (demoEmail, demoPass) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
+  // Fast 1-click test login for paired evaluation
+  const handleQuickTestLogin = async (testEmail, testPass) => {
+    setEmail(testEmail);
+    setPassword(testPass);
     setErrorMsg('');
+    const res = await loginWithEmail(testEmail, testPass);
+    if (res && res.success) {
+      onLoginSuccess(res.user);
+    } else {
+      setErrorMsg(res?.error || 'Login failed.');
+    }
   };
 
   return (
@@ -533,7 +584,7 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
           {/* TAB 1: PUBLIC ACCESS (FOR BUYERS, SELLERS & INVESTORS) */}
           {loginMode === 'public' ? (
             <div>
-              <div style={{ marginBottom: '24px' }}>
+              <div style={{ marginBottom: '20px' }}>
                 <span style={{
                   background: 'rgba(0, 176, 116, 0.15)',
                   color: '#00d68f',
@@ -544,18 +595,58 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
                   display: 'inline-block',
                   marginBottom: '10px'
                 }}>
-                  PUBLIC SIGN IN • BUYERS &amp; INVESTORS
+                  PUBLIC MARKETPLACE PORTAL • BUYERS &amp; SELLERS
                 </span>
-                <h2 style={{ fontSize: '2rem', fontWeight: 800, color: 'white', marginBottom: '8px' }}>
-                  Welcome to Land Lots
+                <h2 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'white', marginBottom: '6px' }}>
+                  {authTab === 'register' ? 'Create Your Land Lots Account' : 'Welcome to Land Lots'}
                 </h2>
-                <p style={{ color: '#94a3b8', fontSize: '0.92rem' }}>
-                  Sign in with Google to track saved plots, view confirmed site visits, and access property documents.
+                <p style={{ color: '#94a3b8', fontSize: '0.88rem' }}>
+                  {authTab === 'register' 
+                    ? 'Register as an Investor to track plots, book site visits, or post your own land for legal verification.' 
+                    : 'Sign in to access your Investor Portal, saved plots, booking receipts, and verified link documents.'}
                 </p>
               </div>
 
+              {/* Sub-tab Toggle: Sign In vs Register */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: 'rgba(255,255,255,0.06)', padding: '4px', borderRadius: '10px', marginBottom: '20px' }}>
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab('signin'); setErrorMsg(''); }}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: authTab === 'signin' ? '#00b074' : 'transparent',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Sign In (Existing User)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab('register'); setErrorMsg(''); }}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: authTab === 'register' ? '#00b074' : 'transparent',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  Register (Create Account)
+                </button>
+              </div>
+
               {/* PUBLIC GOOGLE AUTHENTICATION BUTTON */}
-              <div style={{ marginBottom: '24px' }}>
+              <div style={{ marginBottom: '20px' }}>
                 <button
                   type="button"
                   onClick={handleGooglePublicSignIn}
@@ -565,45 +656,25 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
                     color: '#1f2937',
                     border: 'none',
                     borderRadius: '12px',
-                    padding: '14px 20px',
-                    fontSize: '1rem',
+                    padding: '12px 18px',
+                    fontSize: '0.92rem',
                     fontWeight: 700,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     gap: '12px',
                     cursor: 'pointer',
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
                     transition: 'all 0.2s ease'
                   }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(255,255,255,0.2)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.3)';
-                  }}
                 >
-                  <svg width="22" height="22" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                    />
+                  <svg width="20" height="20" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                   </svg>
-                  <span>Continue with Google</span>
+                  <span>Continue with 1-Click Google Sign In</span>
                 </button>
               </div>
 
@@ -611,23 +682,85 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                margin: '24px 0',
+                margin: '20px 0',
                 color: '#64748b',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 textTransform: 'uppercase',
                 fontWeight: 700
               }}>
                 <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-                <span>Or Continue with Email</span>
+                <span>Or {authTab === 'register' ? 'Register with Details' : 'Continue with Email'}</span>
                 <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
               </div>
 
-              {/* Public Buyer Email Login */}
-              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Public Form (Sign In / Register) */}
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 {errorMsg && (
                   <div style={{ background: '#7f1d1d', color: '#fca5a5', padding: '10px 14px', borderRadius: '8px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <AlertTriangle size={16} /> {errorMsg}
                   </div>
+                )}
+
+                {/* Additional Registration Fields */}
+                {authTab === 'register' && (
+                  <>
+                    <div className="input-group">
+                      <label style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 700 }}>
+                        Full Name / సంస్థ లేదా మీ పేరు
+                      </label>
+                      <div className="input-field-wrap" style={{ background: '#112238', borderColor: 'rgba(255,255,255,0.15)' }}>
+                        <span style={{ padding: '12px', color: '#64748b' }}><UserCheck size={16} /></span>
+                        <input
+                          type="text"
+                          value={regName}
+                          onChange={(e) => setRegName(e.target.value)}
+                          placeholder="e.g. Ramesh Varma"
+                          style={{ color: 'white' }}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px' }}>
+                      <div className="input-group">
+                        <label style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 700 }}>
+                          Mobile Number
+                        </label>
+                        <div className="input-field-wrap" style={{ background: '#112238', borderColor: 'rgba(255,255,255,0.15)' }}>
+                          <input
+                            type="tel"
+                            value={regPhone}
+                            onChange={(e) => setRegPhone(e.target.value)}
+                            placeholder="+91 98490 00000"
+                            style={{ color: 'white', padding: '10px 14px' }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="input-group">
+                        <label style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 700 }}>
+                          Account Type
+                        </label>
+                        <select
+                          value={regRole}
+                          onChange={(e) => setRegRole(e.target.value)}
+                          style={{
+                            width: '100%',
+                            background: '#112238',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            borderRadius: '10px',
+                            color: 'white',
+                            padding: '10px 12px',
+                            fontSize: '0.85rem',
+                            fontWeight: 600
+                          }}
+                        >
+                          <option value="buyer">Investor / Buyer</option>
+                          <option value="seller">Plot / Land Seller</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 <div className="input-group">
@@ -673,18 +806,50 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
 
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="btn btn-primary"
                   style={{
                     padding: '14px',
                     fontSize: '1rem',
                     fontWeight: 700,
-                    marginTop: '4px'
+                    marginTop: '6px',
+                    opacity: isSubmitting ? 0.7 : 1
                   }}
                 >
-                  <span>Sign In as Buyer / Investor</span>
+                  <span>{isSubmitting ? 'Authenticating...' : authTab === 'register' ? 'Complete Registration & Enter' : 'Sign In as Buyer / Investor'}</span>
                   <ArrowRight size={18} />
                 </button>
               </form>
+
+              {/* 1-CLICK INSTANT TEST CREDENTIALS */}
+              <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={14} color="#00d68f" /> 1-Click Instant Test Login (Tap to Enter):
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickTestLogin('buyer@gmail.com', 'Buyer@LandLots2026!')}
+                    style={{ background: '#102238', border: '1px solid #00b074', color: '#34d399', padding: '6px 8px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    👤 Buyer Demo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickTestLogin('admin@landlots.co', 'Admin@LandLots2026!')}
+                    style={{ background: '#102238', border: '1px solid #0284c7', color: '#38bdf8', padding: '6px 8px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    👑 Super Admin
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleQuickTestLogin('accounts@landlots.co', 'Accounts@LandLots2026!')}
+                    style={{ background: '#102238', border: '1px solid #f59e0b', color: '#fbbf24', padding: '6px 8px', borderRadius: '6px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    💼 Accounts
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             /* TAB 2: OFFICE & STAFF CENTRAL ADMINISTRATION */
