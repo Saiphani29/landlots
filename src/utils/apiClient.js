@@ -4,7 +4,10 @@
  * Features automatic offline fallback to local mock data to guarantee 100% uptime.
  */
 
-const API_BASE_URL = 'http://localhost:5001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' 
+    ? '/api' 
+    : 'http://localhost:5001/api');
 
 export const apiClient = {
   // Check backend server health

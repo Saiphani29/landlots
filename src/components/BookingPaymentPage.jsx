@@ -81,7 +81,10 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
 
       try {
         // Record into backend ledger if available
-        await fetch('http://localhost:5001/api/ledger', {
+        const ledgerEndpoint = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+          ? '/api/ledger'
+          : 'http://localhost:5001/api/ledger';
+        await fetch(ledgerEndpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(receipt)
