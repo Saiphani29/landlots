@@ -5,19 +5,24 @@ import {
   AlertCircle, Sparkles, Printer, ExternalLink, HelpCircle
 } from 'lucide-react';
 import { useTranslation } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
+import { apiClient } from '../utils/apiClient';
+
+const PAN_REGEX = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 export default function BookingPaymentPage({ property, onBack, onBookingSuccess }) {
   const { t, language } = useTranslation();
+  const { currentUser } = useAuth();
 
   // 15-Minute Countdown Timer for Real Estate Inventory Lock
   const [secondsRemaining, setSecondsRemaining] = useState(15 * 60);
   const [step, setStep] = useState(1); // 1: Form & Payment, 2: Success Receipt
 
-  // Form State with user-friendly defaults for immediate testing
-  const [buyerName, setBuyerName] = useState('Ramesh Chandra Varma');
-  const [buyerPhone, setBuyerPhone] = useState('98480 12345');
-  const [buyerEmail, setBuyerEmail] = useState('ramesh.varma@gmail.com');
-  const [buyerPan, setBuyerPan] = useState('APCRD9981F');
+  // Form State — prefilled only from the signed-in account, never with sample identities
+  const [buyerName, setBuyerName] = useState(currentUser?.name || '');
+  const [buyerPhone, setBuyerPhone] = useState(currentUser?.phone || '');
+  const [buyerEmail, setBuyerEmail] = useState(currentUser?.email || '');
+  const [buyerPan, setBuyerPan] = useState('');
   const [tokenAmount, setTokenAmount] = useState(25000); // Default ₹25,000 token
   const [paymentMethod, setPaymentMethod] = useState('upi'); // 'upi' | 'netbanking' | 'cards' | 'escrow'
   const [selectedUpiApp, setSelectedUpiApp] = useState('gpay');
@@ -52,56 +57,73 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
     e.preventDefault();
     setErrorMessage('');
 
-    const nameToUse = buyerName.trim() || 'Verified Buyer';
-    const cleanPhone = buyerPhone.replace(/\D/g, '').slice(-10) || '9848012345';
-    const panToUse = (buyerPan.trim() || 'APCRD9981F').toUpperCase();
+    const nameToUse = buyerName.trim();
+    const cleanPhone = buyerPhone.replace(/\D/g, '').slice(-10);
+    const panToUse = buyerPan.trim().toUpperCase();
+
+    if (secondsRemaining === 0) {
+      setErrorMessage('Your 15-minute hold window has expired. Please go back and start the booking again.');
+      return;
+    }
+    if (!nameToUse) {
+      setErrorMessage('Please enter the buyer name as per PAN.');
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setErrorMessage('Please enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+    if (!PAN_REGEX.test(panToUse)) {
+      setErrorMessage('Please enter a valid PAN (format: ABCDE1234F).');
+      return;
+    }
+    if (!property?.id) {
+      setErrorMessage('No plot selected. Please go back and choose a plot to book.');
+      return;
+    }
 
     setIsProcessing(true);
 
-    // Simulate Payment Gateway Handshake (Razorpay / Cashfree / PayU order verification)
-    setTimeout(async () => {
-      const txId = `TX-AP-${Date.now().toString().slice(-6)}`;
-      const receipt = {
-        txId,
-        date: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-        plotId: property?.id || 'LL-PL-101',
-        plotTitle: property?.title || 'Amaravati Capital Green Plot',
-        plotLocation: property?.location || 'Mangalagiri, Vijayawada',
-        buyerName: nameToUse,
-        buyerPhone: `+91 ${cleanPhone}`,
-        buyerEmail: buyerEmail || 'customer@gmail.com',
-        buyerPan: panToUse,
-        totalDealValue: property?.price || '₹36.0 Lakhs',
-        tokenAmount: `₹${tokenAmount.toLocaleString('en-IN')}`,
-        paymentMode: paymentMethod.toUpperCase(),
-        escrowAccount: 'YESB-000491-RERA-ESCROW',
-        referenceHash: `0x${Math.random().toString(16).substring(2, 10)}${Math.random().toString(16).substring(2, 10)}`.toUpperCase(),
-        status: 'CONFIRMED'
-      };
+    // No payment gateway is integrated yet: the server records a booking request as
+    // 'Pending Verification' and finance confirms the token payment manually.
+    const result = await apiClient.createBooking({
+      plotId: property.id,
+      buyerName: nameToUse,
+      buyerPhone: cleanPhone,
+      buyerEmail: buyerEmail.trim(),
+      tokenNum: tokenAmount,
+      paymentMode: paymentMethod
+    }, localStorage.getItem('landlots_session_token'));
 
-      try {
-        // Record into backend ledger if available
-        const ledgerEndpoint = (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
-          ? '/api/ledger'
-          : 'http://localhost:5001/api/ledger';
-        await fetch(ledgerEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(receipt)
-        }).catch(() => {
-          // If server is in offline/mock mode, proceed cleanly
-        });
-      } catch (err) {
-        console.warn('Backend sync skipped:', err);
-      }
+    setIsProcessing(false);
 
-      setIsProcessing(false);
-      setReceiptData(receipt);
-      setStep(2);
-      if (onBookingSuccess) {
-        onBookingSuccess(receipt);
-      }
-    }, 1800);
+    if (!result?.success) {
+      setErrorMessage(result?.error || 'Booking could not be recorded. Please try again.');
+      return;
+    }
+
+    const receipt = {
+      txId: result.txId,
+      date: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      plotId: property.id,
+      plotTitle: result.plotTitle || property.title,
+      plotLocation: property.location || '',
+      buyerName: nameToUse,
+      buyerPhone: `+91 ${cleanPhone}`,
+      buyerEmail: buyerEmail.trim(),
+      buyerPan: `${panToUse.slice(0, 2)}XXXX${panToUse.slice(-4)}`,
+      totalDealValue: result.totalDealValue || property.price,
+      tokenAmount: `₹${tokenAmount.toLocaleString('en-IN')}`,
+      paymentMode: paymentMethod.toUpperCase(),
+      escrowAccount: 'YESB-000491-RERA-ESCROW',
+      status: result.status
+    };
+
+    setReceiptData(receipt);
+    setStep(2);
+    if (onBookingSuccess) {
+      onBookingSuccess(receipt);
+    }
   };
 
   return (
@@ -109,7 +131,7 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
       <div className="container" style={{ maxWidth: '1020px', margin: '0 auto' }}>
         
         {/* Navigation Breadcrumb */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
           <button 
             onClick={onBack}
             className="btn btn-outline"
@@ -237,7 +259,7 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
             </div>
 
             {/* Grid Layout: 2 Columns on Desktop */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '28px' }}>
+            <div className="payment-main-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '28px' }}>
               
               {/* Left Column: Buyer KYC & Payment Channels */}
               <div>
@@ -257,7 +279,7 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
                       <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>{t('pay_buyer_details')}</h3>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                    <div className="payment-kyc-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                       <div style={{ gridColumn: 'span 2' }}>
                         <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
                           {t('pay_name')} *
@@ -324,7 +346,7 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
                     </div>
 
                     {/* Method Selector Tabs */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '20px' }}>
+                    <div className="payment-method-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '20px' }}>
                       {[
                         { id: 'upi', label: '⚡ UPI / QR', icon: Smartphone },
                         { id: 'netbanking', label: '🏦 NetBanking', icon: Building2 },
@@ -362,7 +384,7 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
 
                         <div style={{ display: 'inline-block', background: 'white', padding: '14px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', marginBottom: '16px' }}>
                           <img 
-                            src="https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=upi%3A%2F%2Fpay%3Fpa%3Dlandlots%40yesbank%26pn%3DLandLots%2BEscrow%26am%3D25000%26cu%3DINR%26tn%3DPlot%2BHold%2BAdvance"
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(`upi://pay?pa=landlots@yesbank&pn=LandLots Escrow&am=${tokenAmount}&cu=INR&tn=Plot Hold Advance`)}`}
                             alt="Scan UPI QR" 
                             style={{ width: '150px', height: '150px', display: 'block' }}
                           />
@@ -509,7 +531,7 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
 
               {/* Right Column: Order Summary & Legal Deed Guarantees */}
               <div>
-                <div style={{ background: '#FFFFFF', border: '1px solid #e7e5dc', borderRadius: '20px', padding: '24px', position: 'sticky', top: '100px' }}>
+                <div className="payment-summary-card" style={{ background: '#FFFFFF', border: '1px solid #e7e5dc', borderRadius: '20px', padding: '24px', position: 'sticky', top: '100px' }}>
                   <h3 style={{ margin: '0 0 16px', fontSize: '1.1rem', fontWeight: 700, borderBottom: '1px solid #f1f5f9', paddingBottom: '12px' }}>
                     {t('pay_summary')}
                   </h3>
@@ -519,7 +541,7 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
                     <img 
                       src={property?.image || 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=400&q=80'} 
                       alt={property?.title || 'Selected Plot'} 
-                      style={{ width: '84px', height: '84px', borderRadius: '12px', objectFit: 'cover' }}
+                      style={{ width: '84px', height: '84px', borderRadius: '12px', objectFit: 'cover', flexShrink: 0 }}
                     />
                     <div>
                       <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#00b074', background: '#eefbf4', padding: '2px 8px', borderRadius: '4px' }}>
@@ -616,7 +638,7 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
             {/* Official Certificate Card */}
             <div style={{ border: '2px solid #0A8DDD', borderRadius: '16px', padding: '24px', background: '#f8fafc', marginBottom: '28px', position: 'relative' }}>
               <div style={{ position: 'absolute', top: '-12px', right: '20px', background: '#0A8DDD', color: 'white', fontSize: '0.7rem', fontWeight: 800, padding: '2px 10px', borderRadius: '4px', letterSpacing: '1px' }}>
-                DIGITAL TITLE HOLD CERTIFICATE
+                BOOKING REQUEST · PENDING VERIFICATION
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', fontSize: '0.88rem' }}>
@@ -649,14 +671,14 @@ export default function BookingPaymentPage({ property, onBack, onBookingSuccess 
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 600 }}>Payment Channel</div>
-                    <div style={{ fontWeight: 700, color: '#0A8DDD' }}>{receiptData.paymentMode} / ESCROW VERIFIED</div>
+                    <div style={{ fontWeight: 700, color: '#0A8DDD' }}>{receiptData.paymentMode} / {receiptData.status}</div>
                   </div>
                 </div>
               </div>
 
               {/* Security Hash footer */}
               <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px dashed #cbd5e1', fontSize: '0.72rem', color: '#94a3b8', display: 'flex', justifyContent: 'space-between' }}>
-                <span>Ledger Hash: <code>{receiptData.referenceHash}</code></span>
+                <span>Booking Ref: <code>{receiptData.txId}</code></span>
                 <span>RERA Escrow: {receiptData.escrowAccount}</span>
               </div>
             </div>

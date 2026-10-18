@@ -6,7 +6,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
-  const { loginWithEmail, loginWithGoogle, registerUser, switchRole, failedAttempts, isLockedOut } = useAuth();
+  const { loginWithEmail, loginWithGoogle, registerUser, isLockedOut } = useAuth();
   
   // Login Mode: 'public' (Buyers & Sellers) vs 'office' (Sales, Marketing, Accounts, Admin)
   const [loginMode, setLoginMode] = useState('public');
@@ -229,10 +229,10 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
 
         {/* TOP BRAND & RETURN BUTTON */}
         <div style={{ position: 'relative', zIndex: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <img 
-                src="/logo.svg" 
+              <img
+                src="/logo.svg"
                 alt="Land Lots Official Logo" 
                 style={{ height: '48px', width: 'auto', display: 'block' }}
               />
@@ -556,8 +556,14 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
               onClick={() => {
                 setLoginMode('office');
                 setErrorMsg('');
-                setEmail('admin@landlots.co');
-                setPassword('Admin@LandLots2026!');
+                // Demo credentials are prefilled only on the local dev server, never in production builds
+                if (import.meta.env.DEV) {
+                  setEmail('admin@landlots.co');
+                  setPassword('Admin@LandLots2026!');
+                } else {
+                  setEmail('');
+                  setPassword('');
+                }
               }}
               style={{
                 flex: 1,
@@ -821,7 +827,8 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
                 </button>
               </form>
 
-              {/* 1-CLICK INSTANT TEST CREDENTIALS */}
+              {/* 1-CLICK INSTANT TEST CREDENTIALS (dev server only — stripped from production builds) */}
+              {import.meta.env.DEV && (
               <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                 <div style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Sparkles size={14} color="#00d68f" /> 1-Click Instant Test Login (Tap to Enter):
@@ -850,6 +857,7 @@ export default function AdminLoginPage({ onBackToHome, onLoginSuccess }) {
                   </button>
                 </div>
               </div>
+              )}
             </div>
           ) : (
             /* TAB 2: OFFICE & STAFF CENTRAL ADMINISTRATION */

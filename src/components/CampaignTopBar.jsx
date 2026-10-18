@@ -13,7 +13,7 @@ export default function CampaignTopBar({ onOpenLeadModal }) {
           <button 
             onClick={() => onOpenLeadModal({ title: "Festive Offer Registration" })}
             className="btn btn-outline"
-            style={{ padding: '4px 10px', fontSize: '0.75rem', background: 'rgba(255,255,255,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}
+            style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#ffffff', color: '#0A8DDD', border: '1px solid #b9dcf5', whiteSpace: 'nowrap' }}
           >
             Claim Offer <ArrowRight size={12} />
           </button>

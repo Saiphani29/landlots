@@ -110,18 +110,26 @@ export default function AdminDashboard({
   };
 
   // Add Staff Account Submit
-  const handleAddStaffSubmit = (e) => {
+  const handleAddStaffSubmit = async (e) => {
     e.preventDefault();
     if (!newStaffName || !newStaffEmail) return;
 
-    createOfficeAccount({
-      name: newStaffName,
-      email: newStaffEmail,
-      role: newStaffRole,
-      branch: newStaffBranch,
-      phone: newStaffPhone
-    });
+    let created;
+    try {
+      created = await createOfficeAccount({
+        name: newStaffName,
+        email: newStaffEmail,
+        role: newStaffRole,
+        branch: newStaffBranch,
+        phone: newStaffPhone
+      });
+    } catch (err) {
+      showToast(err.message);
+      return;
+    }
 
+    // The temporary password is shown once; share it with the staff member securely
+    window.alert(`Account created for ${created.email}.\n\nTemporary password (shown once):\n${created.temporaryPassword}`);
     showToast(`Provisioned new ${newStaffRole.toUpperCase()} account for ${newStaffName}`);
     setShowAddStaffModal(false);
     setNewStaffName('');
@@ -204,7 +212,7 @@ export default function AdminDashboard({
       )}
 
       {/* TOP NAVIGATION BAR FOR ADMIN */}
-      <header style={{
+      <header className="admin-topbar" style={{
         background: '#091322',
         borderBottom: '1px solid rgba(255,255,255,0.1)',
         padding: '14px 28px',
@@ -291,9 +299,9 @@ export default function AdminDashboard({
       </header>
 
       {/* DASHBOARD BODY WITH SIDEBAR TABS */}
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', flex: 1 }}>
+      <div className="admin-body" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', flex: 1 }}>
         {/* SIDEBAR */}
-        <aside style={{ background: '#08111e', borderRight: '1px solid rgba(255,255,255,0.08)', padding: '24px 16px' }}>
+        <aside className="admin-sidebar" style={{ background: '#08111e', borderRight: '1px solid rgba(255,255,255,0.08)', padding: '24px 16px' }}>
           <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px', paddingLeft: '12px' }}>
             Administrative Modules
           </div>
@@ -485,12 +493,12 @@ export default function AdminDashboard({
         </aside>
 
         {/* MAIN CONTENT AREA */}
-        <main style={{ padding: '36px', overflowY: 'auto' }}>
+        <main className="admin-main" style={{ padding: '36px', overflowY: 'auto', minWidth: 0 }}>
           {/* TAB 1: OFFICE ACCOUNTS & FINANCIAL LEDGER */}
           {activeTab === 'accounts' && (
             <div>
               {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+              <div className="admin-tab-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
                 <div>
                   <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'white' }}>Office Accounts &amp; Financial Ledger</h1>
                   <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
@@ -506,7 +514,7 @@ export default function AdminDashboard({
               </div>
 
               {/* KPI Metrics Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
+              <div className="admin-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '32px' }}>
                 <div style={{ background: '#102238', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '20px' }}>
                   <div style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase' }}>Token Advances Collected</div>
                   <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#00d68f', margin: '8px 0' }}>₹13,50,000</div>
@@ -533,7 +541,7 @@ export default function AdminDashboard({
               </div>
 
               {/* Transactions Table */}
-              <div style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div className="admin-table-card" style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                 <div style={{ padding: '18px 24px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'white' }}>Recent Real Estate Transaction Receipts</h3>
                   <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Showing {transactions.length} verified transactions</span>
@@ -603,7 +611,7 @@ export default function AdminDashboard({
           {/* TAB 2: STAFF & TEAM PROVISIONING */}
           {activeTab === 'staff' && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+              <div className="admin-tab-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
                 <div>
                   <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'white' }}>Office Staff &amp; Team Logins</h1>
                   <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
@@ -620,7 +628,7 @@ export default function AdminDashboard({
               </div>
 
               {/* Staff Grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
+              <div className="admin-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
                 {officeAccounts.map((account) => (
                   <div key={account.id} style={{
                     background: '#102238',
@@ -673,7 +681,7 @@ export default function AdminDashboard({
           {/* TAB 3: MASTER LEADS CRM */}
           {activeTab === 'leads' && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+              <div className="admin-tab-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
                 <div>
                   <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'white' }}>Sales Leads Pipeline &amp; Site Inspections</h1>
                   <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
@@ -687,7 +695,7 @@ export default function AdminDashboard({
               </div>
 
               {/* Leads Table */}
-              <div style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div className="admin-table-card" style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
                   <thead>
                     <tr style={{ background: '#091626', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>
@@ -764,7 +772,7 @@ export default function AdminDashboard({
           {/* TAB 4: PLOT INVENTORY MASTER */}
           {activeTab === 'inventory' && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+              <div className="admin-tab-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
                 <div>
                   <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'white' }}>Plot &amp; Real Estate Inventory Master</h1>
                   <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
@@ -778,7 +786,7 @@ export default function AdminDashboard({
               </div>
 
               {/* Inventory Table */}
-              <div style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div className="admin-table-card" style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
                   <thead>
                     <tr style={{ background: '#091626', color: '#94a3b8', fontSize: '0.75rem', textTransform: 'uppercase' }}>
@@ -832,7 +840,7 @@ export default function AdminDashboard({
           {/* TAB 5: MARKETING CAMPAIGNS & UTM */}
           {activeTab === 'marketing' && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+              <div className="admin-tab-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
                 <div>
                   <h1 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'white' }}>Marketing Campaigns &amp; UTM Attribution</h1>
                   <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
@@ -841,7 +849,7 @@ export default function AdminDashboard({
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '32px' }}>
+              <div className="admin-kpi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '32px' }}>
                 <div style={{ background: '#102238', borderRadius: '16px', padding: '24px', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700 }}>
                     <span>CAMPAIGN: DIWALI PLOTS VJA</span>
@@ -878,7 +886,7 @@ export default function AdminDashboard({
           {/* TAB 6: USER PROPERTY APPROVALS (Verification Engine) */}
           {activeTab === 'approvals' && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
+              <div className="admin-tab-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
                 <div>
                   <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', margin: 0 }}>
                     User-Submitted Property Approvals ({userSubmissions.length})
@@ -898,7 +906,7 @@ export default function AdminDashboard({
                   </p>
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(360px, 100%), 1fr))', gap: '20px' }}>
                   {userSubmissions.map((sub) => {
                     const isPending = sub.status === 'pending_verification';
                     return (
@@ -1088,7 +1096,7 @@ export default function AdminDashboard({
               </div>
 
               {/* Quick Table View */}
-              <div style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+              <div className="admin-table-card" style={{ background: '#102238', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
                 <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'white', margin: 0 }}>
                     Table: <code>properties</code> (Sample 6 Records)

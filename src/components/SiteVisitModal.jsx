@@ -31,7 +31,7 @@ export default function SiteVisitModal({ modalData, onClose, onSubmitLead }) {
       timestamp: new Date().toLocaleString(),
       name: name.trim(),
       phone: `+91 ${phoneClean.slice(-10)}`,
-      email: `${name.toLowerCase().replace(/\s+/g, '')}@lead.com`,
+      email: '', // not collected by this form — never fabricate contact details
       interest: modalData.propertyName || modalData.title || "General Property Inquiry",
       budget: modalData.propertyPrice || "Flexible",
       status: "Site Visit Confirmed",
@@ -143,7 +143,7 @@ export default function SiteVisitModal({ modalData, onClose, onSubmitLead }) {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px' }}>
                 <div className="input-group">
                   <label><Calendar size={12} /> Preferred Date</label>
                   <div className="input-field-wrap">

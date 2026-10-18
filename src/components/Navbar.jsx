@@ -184,7 +184,7 @@ export default function Navbar({
               title="Schedule 100% Free Chauffeur Cab & Site Inspection"
             >
               <Car size={15} color="#ffffff" />
-              <span>Free Booking (Site Visit)</span>
+              <span>Free Site Visit</span>
             </button>
 
             {/* If Authenticated: Separate Public Buyer from Internal Staff */}
@@ -368,7 +368,7 @@ export default function Navbar({
                     setMobileMenuOpen(false);
                   }}
                   className="city-select-btn"
-                  style={{ width: '100%', appearance: 'none', padding: '10px 14px', cursor: 'pointer', background: '#f8fafc' }}
+                  style={{ width: '100%', appearance: 'none', padding: '10px 14px', cursor: 'pointer', background: '#f8fafc', color: '#0f172a' }}
                 >
                   {CITIES.map(c => (
                     <option key={c.name} value={c.name}>

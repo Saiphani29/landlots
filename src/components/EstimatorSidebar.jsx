@@ -149,7 +149,7 @@ export default function EstimatorSidebar({ isOpen, onClose, onOpenLeadModal }) {
                 <label style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginBottom: '6px', display: 'block' }}>
                   Enter Land Measurement:
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '8px' }}>
                   <input 
                     type="number" 
                     value={areaVal} 

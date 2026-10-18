@@ -156,6 +156,12 @@ export function initDatabase() {
     );
   `);
 
+  // Migration: link transactions to the buyer's account email (used for buyer portal scoping)
+  const txColumns = db.prepare('PRAGMA table_info(transactions)').all().map(c => c.name);
+  if (!txColumns.includes('buyer_email')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN buyer_email TEXT');
+  }
+
   // Seed default office staff with real bcrypt hashes if not already populated
   seedInitialData();
 }

@@ -1,36 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { SECURITY_CONFIG } from '../config/security.config';
+import { apiClient } from '../utils/apiClient';
 
 const AuthContext = createContext(null);
 
-// Default Pre-computed SHA-256 Saltd Hashes for Enterprise Office Staff
-// Salt: "landlots_sec_salt_2026"
-// admin@landlots.co    => Admin@LandLots2026!
-// sales@landlots.co    => Sales@LandLots2026!
-// marketing@landlots.co => Marketing@LandLots2026!
-// accounts@landlots.co  => Accounts@LandLots2026!
-// Cryptographic SHA-256 Salted Digest Verifier (Web Crypto API)
-export async function sha256Salted(password, salt = "landlots_sec_salt_2026") {
-  try {
-    const enc = new TextEncoder();
-    const data = enc.encode(password + salt);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  } catch (e) {
-    return null;
-  }
-}
-
-// Pre-computed SHA-256 Salted Hashes for Enterprise Office Staff
-// Plaintext credentials removed from client bundle for SOC2/ISO27001 compliance
+// Office staff directory shown before the live directory loads from the server.
+// Credentials are verified ONLY by the API server (bcrypt + signed JWT) — no passwords
+// or password hashes may ever be shipped in this client bundle.
 export const DEFAULT_OFFICE_ACCOUNTS = [
   {
     id: "ACC-001",
     name: "Srikanth Varma",
     email: "admin@landlots.co",
-    passwordHash: "7b0b6e15993708e08d5e82b74f323a60a7ad96841b538e1b69ec1f99c8945620", // SHA-256 digest
-    salt: "landlots_sec_salt_2026",
     role: "super_admin",
     roleLabel: "Master Admin & Principal",
     department: "Executive Management",
@@ -42,8 +23,6 @@ export const DEFAULT_OFFICE_ACCOUNTS = [
     id: "ACC-002",
     name: "Suresh Varma",
     email: "sales@landlots.co",
-    passwordHash: "54ff95b9d2906d28905b9854efcba3b2a2491a620b72a6a6e76aa6bb4e83a789",
-    salt: "landlots_sec_salt_2026",
     role: "sales",
     roleLabel: "Senior Sales Lead",
     department: "Sales & Client Advisory",
@@ -55,8 +34,6 @@ export const DEFAULT_OFFICE_ACCOUNTS = [
     id: "ACC-003",
     name: "Pooja Reddy",
     email: "marketing@landlots.co",
-    passwordHash: "97660a9f5d3ea2d385f0ef3076c8c4da0ca58a5da4c519aa91f1a43a0e9b9514",
-    salt: "landlots_sec_salt_2026",
     role: "marketing",
     roleLabel: "Head of Growth & Campaigns",
     department: "Digital Marketing & Branding",
@@ -68,8 +45,6 @@ export const DEFAULT_OFFICE_ACCOUNTS = [
     id: "ACC-004",
     name: "Lakshmi Narayana",
     email: "accounts@landlots.co",
-    passwordHash: "1e5e01bbf5c7fa377f078ef40a454848d5622a6136d80c0587ce96316823ca27",
-    salt: "landlots_sec_salt_2026",
     role: "finance_accounts",
     roleLabel: "Office Accounts & Finance Controller",
     department: "Treasury & Office Accounts",
@@ -79,13 +54,45 @@ export const DEFAULT_OFFICE_ACCOUNTS = [
   }
 ];
 
+const DEFAULT_AVATAR = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80";
+
+// Normalize a server user (snake_case) into the client shape, keeping directory avatars
+function fromServerUser(u) {
+  const known = DEFAULT_OFFICE_ACCOUNTS.find(a => a.email === u.email);
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    roleLabel: u.role_label || u.roleLabel,
+    department: u.department,
+    branch: u.branch,
+    phone: u.phone || known?.phone || '',
+    avatar: u.avatar || known?.avatar || DEFAULT_AVATAR
+  };
+}
+
+// Decode a JWT payload and check expiry (server tokens use seconds, per RFC 7519)
+function isTokenLive(token) {
+  try {
+    const parts = (token || '').split('.');
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (!payload.exp) return false;
+    const expMs = payload.exp < 1e12 ? payload.exp * 1000 : payload.exp;
+    return expMs > Date.now();
+  } catch {
+    return false;
+  }
+}
+
 // Helper: NIST SP 800-63B Password Complexity Analyzer
 export function evaluatePasswordStrength(password = '') {
   const minLength = password.length >= 8;
   const hasUpper = /[A-Z]/.test(password);
   const hasLower = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
-  const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasSpecial = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password);
 
   const passedCount = [minLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length;
 
@@ -118,50 +125,38 @@ export function evaluatePasswordStrength(password = '') {
 }
 
 export function AuthProvider({ children }) {
-  // Current Authenticated Session
+  // Current Authenticated Session (restored only while its token is unexpired)
   const [currentUser, setCurrentUser] = useState(() => {
-    const saved = localStorage.getItem('landlots_auth_user');
-    const token = localStorage.getItem('landlots_session_token');
-    if (saved && token) {
-      try {
-        const parsed = JSON.parse(saved);
-        const tokenParts = token.split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(atob(tokenParts[1]));
-          if (payload.exp > Date.now()) {
-            return parsed;
-          }
-        }
-      } catch (e) {
-        console.warn("Corrupt or expired session token detected and purged.", e);
-      }
+    try {
+      const saved = localStorage.getItem('landlots_auth_user');
+      const token = localStorage.getItem('landlots_session_token');
+      if (saved && isTokenLive(token)) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Corrupt or expired session token detected and purged.", e);
     }
     return null;
   });
 
-  // Provisioned Office Accounts
-  const [officeAccounts, setOfficeAccounts] = useState(() => {
-    const saved = localStorage.getItem('landlots_office_accounts');
-    return saved ? JSON.parse(saved) : DEFAULT_OFFICE_ACCOUNTS;
-  });
+  // Office staff directory (live list loaded from the server for super admins)
+  const [officeAccounts, setOfficeAccounts] = useState(DEFAULT_OFFICE_ACCOUNTS);
 
-  // Brute Force Lockout & Tracking State
-  const [failedAttempts, setFailedAttempts] = useState(() => {
-    const saved = sessionStorage.getItem('landlots_failed_auth_attempts');
-    return saved ? parseInt(saved, 10) : 0;
-  });
+  // Lockout state mirrors the server's brute-force guard (HTTP 429)
+  const [failedAttempts, setFailedAttempts] = useState(0);
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutRemainingSec, setLockoutRemainingSec] = useState(0);
 
-  // Tamper-Evident Audit Trail Log
+  // Client-side activity trail (informational only; the authoritative audit log is server-side)
   const [auditLogs, setAuditLogs] = useState(() => {
-    const saved = localStorage.getItem('landlots_audit_trail');
-    return saved ? JSON.parse(saved) : [
+    try {
+      const saved = localStorage.getItem('landlots_audit_trail');
+      if (saved) return JSON.parse(saved);
+    } catch { /* fall through to default */ }
+    return [
       {
         id: 'LOG-INIT',
         timestamp: new Date().toISOString(),
         event: 'SECURITY_SUBSYSTEM_INITIALIZED',
-        details: 'PBKDF2/SHA-256 Auth Subsystem & RBAC Active (SOC2 Compliance Mode)',
+        details: 'Server-side bcrypt + JWT authentication & RBAC active',
         severity: 'INFO',
         actor: 'SYSTEM'
       }
@@ -179,14 +174,42 @@ export function AuthProvider({ children }) {
   }, [currentUser]);
 
   useEffect(() => {
-    localStorage.setItem('landlots_office_accounts', JSON.stringify(officeAccounts));
-  }, [officeAccounts]);
+    // Purge data persisted by the old client-side auth engine (contained plaintext passwords)
+    localStorage.removeItem('landlots_office_accounts');
+    localStorage.removeItem('landlots_registered_users');
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('landlots_audit_trail', JSON.stringify(auditLogs.slice(0, 100))); // Keep latest 100 entries
   }, [auditLogs]);
 
-  // Append entry to tamper-evident audit trail
+  // Load the live staff directory for super admins
+  useEffect(() => {
+    if (currentUser?.role !== 'super_admin') return;
+    const token = localStorage.getItem('landlots_session_token');
+    apiClient.getStaff(token).then(list => {
+      if (Array.isArray(list) && list.length) setOfficeAccounts(list.map(fromServerUser));
+    });
+  }, [currentUser]);
+
+  // Lockout countdown
+  useEffect(() => {
+    if (!isLockedOut) return;
+    const timer = setInterval(() => {
+      setLockoutRemainingSec(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setIsLockedOut(false);
+          setFailedAttempts(0);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isLockedOut]);
+
+  // Append entry to activity trail
   const logAuditEvent = useCallback((event, details, severity = 'INFO', actor = currentUser?.email || 'ANONYMOUS') => {
     const newEntry = {
       id: `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -199,255 +222,94 @@ export function AuthProvider({ children }) {
     setAuditLogs(prev => [newEntry, ...prev]);
   }, [currentUser]);
 
-  // Generate cryptographically structured session JWT (Header.Payload.Signature)
-  const generateSessionToken = (user) => {
-    const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-    const payload = btoa(JSON.stringify({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-      iss: SECURITY_CONFIG.session.tokenIssuer,
-      iat: Date.now(),
-      exp: Date.now() + SECURITY_CONFIG.session.tokenExpirationHours * 60 * 60 * 1000
-    }));
-    const signature = btoa(`sig_${user.id}_${Date.now()}_sha256`);
-    return `${header}.${payload}.${signature}`;
+  const startSession = (token, serverUser) => {
+    const user = fromServerUser(serverUser);
+    localStorage.setItem('landlots_session_token', token);
+    setCurrentUser(user);
+    return user;
   };
 
-  // Secure Password Verification with Brute-Force Guard & Audit Logging
+  // Server-verified sign-in (staff, returning buyers, and first-time buyer sign-up)
   const loginWithEmail = async (email, password) => {
     const cleanEmail = (email || '').trim().toLowerCase();
 
     if (isLockedOut) {
-      logAuditEvent('AUTH_LOCKOUT_REJECT', `Rejected login for ${cleanEmail} due to active security lockout`, 'WARN');
-      return { 
-        success: false, 
-        error: `Security Lockout Active: Account locked due to repeated failed attempts. Please wait ${lockoutRemainingSec}s.` 
+      return {
+        success: false,
+        error: `Security Lockout Active: Too many failed attempts. Please wait ${lockoutRemainingSec}s.`
       };
     }
 
-    const CORPORATE_PASSWORDS = {
-      'admin@landlots.co': 'Admin@LandLots2026!',
-      'sales@landlots.co': 'Sales@LandLots2026!',
-      'marketing@landlots.co': 'Marketing@LandLots2026!',
-      'accounts@landlots.co': 'Accounts@LandLots2026!'
-    };
+    const res = await apiClient.login(cleanEmail, password);
 
-    const account = officeAccounts.find(a => a.email.toLowerCase() === cleanEmail);
-
-    if (account) {
-      // Validate corporate password using SHA-256 salted digest with trusted corporate fallback
-      const computedHash = await sha256Salted(password, account.salt);
-      const isMatch = (password === CORPORATE_PASSWORDS[cleanEmail]) || 
-                      (computedHash && account.passwordHash === computedHash) || 
-                      (account.passwordPlain && account.passwordPlain === password);
-
-      if (!isMatch) {
-        const newAttempts = failedAttempts + 1;
-        setFailedAttempts(newAttempts);
-        sessionStorage.setItem('landlots_failed_auth_attempts', String(newAttempts));
-
-        logAuditEvent('AUTH_FAILURE', `Invalid password attempt (${newAttempts}/5) for ${cleanEmail}`, 'WARN');
-
-        if (newAttempts >= SECURITY_CONFIG.passwordPolicy.maxConsecutiveFailedAttempts) {
-          setIsLockedOut(true);
-          const lockoutSeconds = SECURITY_CONFIG.passwordPolicy.lockoutDurationMinutes * 60;
-          setLockoutRemainingSec(lockoutSeconds);
-
-          logAuditEvent('AUTH_LOCKOUT_TRIGGERED', `5 failed attempts exceeded for ${cleanEmail}. Lockout triggered for 5 mins.`, 'CRITICAL');
-
-          const timer = setInterval(() => {
-            setLockoutRemainingSec(prev => {
-              if (prev <= 1) {
-                clearInterval(timer);
-                setIsLockedOut(false);
-                setFailedAttempts(0);
-                sessionStorage.removeItem('landlots_failed_auth_attempts');
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-
-          return { 
-            success: false, 
-            error: "Security Alert: 5 consecutive failed attempts exceeded. Security lockout engaged for 5 minutes." 
-          };
-        }
-
-        return { 
-          success: false, 
-          error: `Incorrect password. Failed attempt ${newAttempts} of 5 before account lockout.` 
-        };
-      }
-
-      // Successful password match
+    if (res.success && res.token) {
       setFailedAttempts(0);
-      sessionStorage.removeItem('landlots_failed_auth_attempts');
-
-      const token = generateSessionToken(account);
-      localStorage.setItem('landlots_session_token', token);
-      setCurrentUser(account);
-
-      logAuditEvent('AUTH_SUCCESS', `Staff authenticated successfully: ${account.name} (${account.roleLabel})`, 'INFO', account.email);
-
-      return { success: true, user: account };
+      const user = startSession(res.token, res.user);
+      logAuditEvent('AUTH_SUCCESS', `Signed in: ${user.name} (${user.roleLabel})`, 'INFO', user.email);
+      return { success: true, user };
     }
 
-    // Check Registered Public Users
-    const savedUsersRaw = localStorage.getItem('landlots_registered_users');
-    const regUsers = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
-    const regUser = regUsers.find(u => u.email.toLowerCase() === cleanEmail);
-
-    if (regUser) {
-      if (regUser.password && regUser.password !== password) {
-        return { success: false, error: "Incorrect password for registered account." };
-      }
-      const token = generateSessionToken(regUser);
-      localStorage.setItem('landlots_session_token', token);
-      setCurrentUser(regUser);
-      logAuditEvent('BUYER_AUTH_SUCCESS', `Registered user signed in: ${cleanEmail}`, 'INFO', cleanEmail);
-      return { success: true, user: regUser };
+    if (res.status === 429) {
+      const match = /(\d+) seconds/.exec(res.error || '');
+      setIsLockedOut(true);
+      setLockoutRemainingSec(match ? parseInt(match[1], 10) : SECURITY_CONFIG.passwordPolicy.lockoutDurationMinutes * 60);
+    } else if (res.status === 401 || res.status === 400) {
+      setFailedAttempts(prev => prev + 1);
+      logAuditEvent('AUTH_FAILURE', `Failed sign-in attempt for ${cleanEmail}`, 'WARN', cleanEmail);
     }
 
-    // Public Buyer Instant Access Check (Any valid email with 6+ chars password)
-    if (!password || password.length < 6) {
-      return { success: false, error: "Password must be at least 6 characters for public investor access." };
-    }
-
-    const buyerUser = {
-      id: `USR-${Date.now()}`,
-      name: cleanEmail.split('@')[0],
-      email: cleanEmail,
-      role: "buyer",
-      roleLabel: "Verified Buyer / Investor",
-      department: "Client Services",
-      branch: "Online Public Portal",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80",
-      authProvider: "email_password"
-    };
-
-    const token = generateSessionToken(buyerUser);
-    localStorage.setItem('landlots_session_token', token);
-    setCurrentUser(buyerUser);
-
-    logAuditEvent('BUYER_AUTH_SUCCESS', `Public investor signed in: ${cleanEmail}`, 'INFO', cleanEmail);
-
-    return { success: true, user: buyerUser };
+    return { success: false, error: res.error || 'Authentication failed. Please verify your credentials.' };
   };
 
   // Register New User (Buyer, Investor, or Plot Seller)
   const registerUser = async ({ name, email, phone, role = 'buyer', password }) => {
-    const cleanEmail = (email || '').trim().toLowerCase();
-    if (!name || !cleanEmail || !password) {
-      return { success: false, error: 'Full name, email address, and password are required.' };
+    const res = await apiClient.register({ name, email, phone, role, password });
+    if (!res.success || !res.token) {
+      return { success: false, error: res.error || 'Registration failed. Please try again.' };
     }
-    if (password.length < 6) {
-      return { success: false, error: 'Password must be at least 6 characters.' };
-    }
-
-    const savedUsersRaw = localStorage.getItem('landlots_registered_users');
-    const currentReg = savedUsersRaw ? JSON.parse(savedUsersRaw) : [];
-    if (currentReg.some(u => u.email.toLowerCase() === cleanEmail)) {
-      return { success: false, error: 'An account with this email already exists. Please sign in.' };
-    }
-
-    const newUser = {
-      id: `USR-${Date.now()}`,
-      name: name.trim(),
-      email: cleanEmail,
-      phone: phone || '',
-      role: role,
-      roleLabel: role === 'seller' ? 'Verified Land Seller' : 'Verified Buyer / Investor',
-      department: 'Client Services',
-      branch: 'Online Public Portal',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
-      password,
-      createdAt: new Date().toISOString()
-    };
-
-    const updated = [newUser, ...currentReg];
-    localStorage.setItem('landlots_registered_users', JSON.stringify(updated));
-
-    const token = generateSessionToken(newUser);
-    localStorage.setItem('landlots_session_token', token);
-    setCurrentUser(newUser);
-
-    logAuditEvent('USER_REGISTERED', `New account registered: ${cleanEmail} (${newUser.roleLabel})`, 'INFO', cleanEmail);
-    return { success: true, user: newUser };
+    const user = startSession(res.token, res.user);
+    logAuditEvent('USER_REGISTERED', `New account registered: ${user.email} (${user.roleLabel})`, 'INFO', user.email);
+    return { success: true, user };
   };
 
-  // Google Public Authentication (Instant 1-Click for Buyers/Investors)
+  // Google sign-in DEMO: no Google OAuth client is configured, so this opens a local
+  // preview session only (no server token — server-protected data stays inaccessible).
   const loginWithGoogle = () => {
     const googleUser = {
-      id: `G-${Date.now()}`,
+      id: 'G-DEMO',
       name: "Public Verified Buyer",
       email: "buyer.google@gmail.com",
       role: "buyer",
       roleLabel: "Verified Google Investor",
       department: "Public Marketplace",
       branch: "Global Online",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80",
+      avatar: DEFAULT_AVATAR,
       authProvider: "google"
     };
 
-    const token = generateSessionToken(googleUser);
-    localStorage.setItem('landlots_session_token', token);
+    const payload = btoa(JSON.stringify({ sub: googleUser.id, role: 'buyer', exp: Math.floor(Date.now() / 1000) + 2 * 3600 }));
+    localStorage.setItem('landlots_session_token', `demo.${payload}.unsigned`);
     setCurrentUser(googleUser);
 
-    logAuditEvent('GOOGLE_SSO_SUCCESS', 'Public Google SSO session initialized', 'INFO', googleUser.email);
+    logAuditEvent('GOOGLE_SSO_DEMO', 'Google SSO demo session initialized', 'INFO', googleUser.email);
 
     return { success: true, user: googleUser };
   };
 
-  // Quick Role Switching for authorized sandbox testing
-  const switchRole = (roleKey) => {
-    const matched = officeAccounts.find(a => a.role === roleKey);
-    if (matched) {
-      const token = generateSessionToken(matched);
-      localStorage.setItem('landlots_session_token', token);
-      setCurrentUser(matched);
-      logAuditEvent('ROLE_SWITCH', `Simulated switch to role: ${roleKey}`, 'INFO', matched.email);
+  // Provision new office account on the server (super_admin only)
+  const createOfficeAccount = async (accountData) => {
+    const token = localStorage.getItem('landlots_session_token');
+    const res = await apiClient.createStaff(accountData, token);
+    if (!res.success) {
+      throw new Error(res.error || 'Failed to provision staff account.');
     }
-  };
-
-  // Provision new office account with NIST SP 800-63B validation
-  const createOfficeAccount = (accountData) => {
-    const strength = evaluatePasswordStrength(accountData.password);
-    if (strength.score < 3) {
-      throw new Error("Password does not meet enterprise complexity requirements (must contain 8+ chars, uppercase, lowercase, numbers, and special symbols).");
-    }
-
-    const newAcc = {
-      id: `ACC-00${officeAccounts.length + 1}`,
-      name: accountData.name,
-      email: accountData.email.toLowerCase(),
-      passwordPlain: accountData.password,
-      role: accountData.role,
-      roleLabel: getRoleLabel(accountData.role),
-      department: accountData.department || "Operations",
-      branch: accountData.branch || "Vijayawada HQ",
-      phone: accountData.phone || "+91 98490 00000",
-      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80",
-      createdAt: new Date().toLocaleDateString()
-    };
-
+    const newAcc = fromServerUser(res.user);
     setOfficeAccounts(prev => [...prev, newAcc]);
     logAuditEvent('STAFF_PROVISIONED', `New office staff provisioned: ${newAcc.email} (${newAcc.role})`, 'INFO');
-    return newAcc;
+    return { ...newAcc, temporaryPassword: res.temporaryPassword };
   };
 
-  const getRoleLabel = (role) => {
-    switch (role) {
-      case 'super_admin': return 'Master Admin & Director';
-      case 'sales': return 'Senior Sales Lead';
-      case 'marketing': return 'Head of Growth & Campaigns';
-      case 'finance_accounts': return 'Office Accounts & Finance Controller';
-      default: return 'Verified Investor';
-    }
-  };
-
-  // Check RBAC permission for current user
+  // Check RBAC permission for current user (UI gating only — the server enforces access)
   const hasPermission = (permissionName) => {
     if (!currentUser) return false;
     const roleConfig = Object.values(SECURITY_CONFIG.roles).find(r => r.id === currentUser.role);
@@ -471,7 +333,6 @@ export function AuthProvider({ children }) {
       loginWithEmail,
       loginWithGoogle,
       registerUser,
-      switchRole,
       createOfficeAccount,
       logout,
       failedAttempts,

@@ -56,8 +56,10 @@ Configuration is externalized per Twelve-Factor App guidelines into [`.env`](fil
 # Server & Security Configuration
 # =========================================================================
 PORT=5001
-NODE_ENV=development
-JWT_SECRET=landlots_jwt_master_secret_2026_soc2_compliant_key_xyz987!#
+# Do NOT put NODE_ENV in .env — Vite would turn `npm run build` into a dev build.
+# Set NODE_ENV=production in the host environment for deployments.
+# REQUIRED in production: 32+ random chars (server refuses to start without it)
+JWT_SECRET=<generate: node -e "console.log(require('crypto').randomBytes(48).toString('hex'))">
 CORS_ORIGIN=http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174
 
 # =========================================================================
@@ -68,7 +70,8 @@ DATABASE_URL=
 # =========================================================================
 # Frontend Client Configuration
 # =========================================================================
-VITE_API_BASE_URL=http://localhost:5001/api
+# Optional; leave unset in production so the app calls same-origin /api
+# VITE_API_URL=http://localhost:5001/api
 ```
 
 ---
@@ -125,6 +128,11 @@ The system enforces strict role-based privilege isolation to protect customer PI
 ```
 
 ### Access Matrix & Verified Test Credentials
+
+> **Sign-in is verified by the API server only** — keep `npm run server` running alongside `npm run dev`.
+> These are seed credentials for local development. They were previously shipped in the public JS bundle,
+> so **change every staff password before going live**. A first sign-in from an unknown email creates a buyer
+> account with that password (bcrypt-hashed); later sign-ins must use the same password.
 
 | Portal / View | Allowed Roles | Default Account | Password (NIST SP 800-63B) |
 | :--- | :--- | :--- | :--- |

@@ -97,12 +97,12 @@ export const TRANSLATIONS = {
     pay_security_notice: 'Secured via 256-Bit SSL Encryption. Token deposited into Escrow Bank Account. 100% refund guarantee if not satisfied within 48 hours of physical inspection.',
     
     // Receipt
-    receipt_title: 'Plot Reservation Confirmed!',
-    receipt_subtitle: 'Your token advance has been recorded in the blockchain-backed office ledger.',
+    receipt_title: 'Booking Request Received!',
+    receipt_subtitle: 'Your plot hold request is recorded. Our accounts team will verify your token payment and confirm within 24 hours.',
     receipt_tx_id: 'Transaction Reference',
     receipt_date: 'Date & Timestamp',
     receipt_plot: 'Property Reserved',
-    receipt_amount_paid: 'Amount Paid',
+    receipt_amount_paid: 'Token Amount',
     receipt_escrow: 'Designated RERA Escrow Account',
     receipt_print: 'Download Official Receipt (PDF)',
     receipt_done: 'Return to Website'
@@ -203,12 +203,12 @@ export const TRANSLATIONS = {
     pay_security_notice: '256-బిట్ SSL ఎన్క్రిప్షన్ ద్వారా రక్షించబడింది. చెల్లింపు RERA ఎస్క్రో ఖాతాలో జమ అవుతుంది. 48 గంటల్లో సైట్ నచ్చకపోతే 100% పూర్తి వాపసు హామీ.',
 
     // Receipt
-    receipt_title: 'ప్లాట్ రిజర్వేషన్ విజయవంతమైంది!',
-    receipt_subtitle: 'మీ టోకెన్ చెల్లింపు కార్యాలయ లెడ్జర్‌లో నమోదు చేయబడింది.',
+    receipt_title: 'బుకింగ్ అభ్యర్థన అందింది!',
+    receipt_subtitle: 'మీ ప్లాట్ హోల్డ్ అభ్యర్థన నమోదైంది. మా అకౌంట్స్ బృందం మీ టోకెన్ చెల్లింపును ధృవీకరించి 24 గంటల్లో నిర్ధారిస్తుంది.',
     receipt_tx_id: 'లావాదేవీ సంఖ్య (Tx ID)',
     receipt_date: 'తేదీ & సమయం',
     receipt_plot: 'రిజర్వ్ చేసిన ప్లాట్',
-    receipt_amount_paid: 'చెల్లించిన మొత్తం',
+    receipt_amount_paid: 'టోకెన్ మొత్తం',
     receipt_escrow: 'RERA అధికారిక ఎస్క్రో ఖాతా',
     receipt_print: 'అధికారిక రసీదును డౌన్‌లోడ్ చేయండి (PDF)',
     receipt_done: 'తిరిగి హోమ్‌పేజీకి వెళ్ళండి'
@@ -309,12 +309,12 @@ export const TRANSLATIONS = {
     pay_security_notice: '256-बिट SSL एन्क्रिप्शन द्वारा सुरक्षित। टोकन राशि RERA एस्क्रो खाते में जमा होती है। 48 घंटे के भीतर निरीक्षण पसंद न आने पर 100% धन वापसी गारंटी।',
 
     // Receipt
-    receipt_title: 'प्लॉट आरक्षण सफल रहा!',
-    receipt_subtitle: 'आपका टोकन अग्रिम आधिकारिक बहीखाते (Ledger) में दर्ज कर लिया गया है।',
+    receipt_title: 'बुकिंग अनुरोध प्राप्त हुआ!',
+    receipt_subtitle: 'आपका प्लॉट होल्ड अनुरोध दर्ज हो गया है। हमारी अकाउंट्स टीम 24 घंटे में आपके टोकन भुगतान की पुष्टि करेगी।',
     receipt_tx_id: 'लेन-देन संदर्भ संख्या (Tx ID)',
     receipt_date: 'दिनांक एवं समय',
     receipt_plot: 'आरक्षित संपत्ति',
-    receipt_amount_paid: 'भुगतान की गई राशि',
+    receipt_amount_paid: 'टोकन राशि',
     receipt_escrow: 'RERA आधिकारिक एस्क्रो खाता',
     receipt_print: 'आधिकारिक रसीद डाउनलोड करें (PDF)',
     receipt_done: 'वेबसाइट पर वापस जाएं'

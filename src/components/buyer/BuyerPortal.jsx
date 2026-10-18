@@ -168,6 +168,7 @@ export default function BuyerPortal({
                 padding: '7px 12px',
                 fontSize: '0.82rem',
                 borderColor: 'rgba(255,255,255,0.15)',
+                background: 'rgba(255,255,255,0.08)',
                 color: '#cbd5e1',
                 display: 'flex',
                 alignItems: 'center',

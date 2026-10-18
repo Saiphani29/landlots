@@ -16,6 +16,7 @@ import AdminLoginPage from './components/admin/AdminLoginPage';
 import AdminDashboard from './components/admin/AdminDashboard';
 import PolicyPages from './components/pages/PolicyPages';
 import BookingPaymentPage from './components/BookingPaymentPage';
+import { apiClient } from './utils/apiClient';
 import BuyerPortal from './components/buyer/BuyerPortal';
 import EstimatorSidebar from './components/EstimatorSidebar';
 import DatabaseExplorerModal from './components/DatabaseExplorerModal';
@@ -197,6 +198,18 @@ function MainApp() {
   // Lead handling
   const handleLeadSubmit = (newLead) => {
     setLeads((prev) => [newLead, ...prev]);
+    // Persist to the office CRM so the sales team actually receives the inquiry
+    apiClient.submitLead({
+      name: newLead.name,
+      phone: newLead.phone,
+      email: newLead.email,
+      preferredDate: newLead.date,
+      preferredTime: newLead.timeSlot,
+      notes: `Cab pickup: ${newLead.cabPickup}`,
+      propertyTitle: newLead.interest,
+      utmSource: newLead.source,
+      utmCampaign: newLead.utm_campaign
+    });
   };
 
   // User Property Submissions Handlers (User Space -> Admin Verification Pipeline)
@@ -304,17 +317,28 @@ function MainApp() {
     }
 
     return (
-      <AdminDashboard 
-        onBackToWebsite={() => setCurrentView('website')}
-        properties={properties}
-        onAddProperty={handleBulkAddProperties}
-        leads={leads}
-        onUpdateLeadStatus={handleUpdateLeadStatus}
-        userSubmissions={userSubmissions}
-        onApproveProperty={handleApproveProperty}
-        onRejectProperty={handleRejectProperty}
-        onOpenDatabaseModal={() => setIsDatabaseOpen(true)}
-      />
+      <>
+        <AdminDashboard
+          onBackToWebsite={() => setCurrentView('website')}
+          properties={properties}
+          onAddProperty={handleBulkAddProperties}
+          leads={leads}
+          onUpdateLeadStatus={handleUpdateLeadStatus}
+          userSubmissions={userSubmissions}
+          onApproveProperty={handleApproveProperty}
+          onRejectProperty={handleRejectProperty}
+          onOpenDatabaseModal={() => setIsDatabaseOpen(true)}
+        />
+
+        {/* Rendered here too: the dashboard's "Open DB Inspector" button would otherwise do nothing */}
+        <DatabaseExplorerModal
+          isOpen={isDatabaseOpen}
+          onClose={() => setIsDatabaseOpen(false)}
+          properties={properties}
+          leads={leads}
+          userSubmissions={userSubmissions}
+        />
+      </>
     );
   }
 

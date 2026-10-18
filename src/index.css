@@ -250,7 +250,7 @@ input, select, textarea {
 .site-header {
   position: sticky;
   top: 0;
-  z-index: 40;
+  z-index: 95; /* above .floating-tools-btn (90) so the mobile drawer isn't covered; below modals (100+) */
   background: linear-gradient(135deg, #061526 0%, #0a2238 55%, #05261d 100%);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -270,7 +270,6 @@ input, select, textarea {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-right: 32px;
   text-decoration: none;
 }
 
@@ -300,7 +299,7 @@ input, select, textarea {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 4px;
   list-style: none;
 }
 
@@ -315,6 +314,7 @@ input, select, textarea {
   padding: 6px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -352,6 +352,20 @@ input, select, textarea {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.header-actions > * {
+  flex-shrink: 0;
+}
+
+/* Header needs more room than the 1240px content container to fit nav + actions */
+.site-header .container {
+  max-width: 1600px;
+}
+
+.header-actions .city-select-btn {
+  max-width: 170px;
+  text-overflow: ellipsis;
 }
 
 /* Hero Section - Serene Light Aesthetic */
@@ -485,10 +499,32 @@ input, select, textarea {
   padding: 64px 0;
 }
 
+.section {
+  padding: 64px 0;
+}
+
+.section-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  margin-bottom: 10px;
+  border-radius: var(--radius-full);
+  background: var(--brand-green-light);
+  border: 1px solid #c8f0d6;
+  color: #0e7041;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
 .section-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px 32px;
   margin-bottom: 36px;
 }
 
@@ -957,6 +993,11 @@ input, select, textarea {
   box-shadow: 0 0 0 3px var(--brand-blue-glow);
 }
 
+.input-field-wrap input,
+.input-field-wrap select {
+  min-width: 0; /* let fields shrink inside narrow grid columns instead of overflowing */
+}
+
 .input-field-wrap input {
   padding: 12px 14px;
   font-size: 1rem;
@@ -1202,6 +1243,21 @@ input, select, textarea {
   border-color: #cbd5e1;
 }
 
+/* Laptop widths: nav links don't fit beside the header actions, so move them into the drawer */
+@media (min-width: 1025px) and (max-width: 1679px) {
+  .nav-links.desktop-only {
+    display: none !important;
+  }
+  .mobile-only.mobile-menu-toggle {
+    display: flex !important;
+  }
+  .mobile-nav-drawer.mobile-only {
+    display: block !important;
+    left: auto;
+    width: 380px;
+  }
+}
+
 /* Responsive Media Queries */
 @media (max-width: 1024px) {
   .hero-grid {
@@ -1265,6 +1321,36 @@ input, select, textarea {
   }
   .top-campaign-bar .desktop-only {
     display: none !important;
+  }
+
+  /* Floating tools button: dock bottom-right instead of covering mid-screen text */
+  .floating-tools-btn {
+    top: auto;
+    bottom: 16px;
+    right: 16px;
+    transform: none;
+    border-radius: var(--radius-full);
+    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    padding: 10px 14px;
+  }
+  .floating-tools-btn:hover {
+    padding-left: 14px;
+  }
+
+  /* Section headers: stack title above the description/controls */
+  .section {
+    padding: 44px 0;
+  }
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+  .section-header > p {
+    text-align: left !important;
+  }
+  .section-title {
+    font-size: 1.6rem;
   }
 
   /* Hero Section Mobile */
@@ -1357,8 +1443,18 @@ input, select, textarea {
   .hero-title {
     font-size: 1.75rem;
   }
+  .post-btn-text {
+    display: none;
+  }
+  .nav-post-btn {
+    padding: 8px 10px;
+  }
+  /* !important: PropertyCard sets a 3-column grid inline, which can't fit three buttons on phones */
   .card-sales-footer {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .card-sales-footer > :last-child {
+    grid-column: 1 / -1;
   }
   .stats-strip {
     grid-template-columns: 1fr;
@@ -1741,4 +1837,92 @@ input, select, textarea {
   background: #ef4444;
   border-color: #ef4444;
   color: #ffffff;
+}
+
+/* Booking / Payment page: grids are set inline, so responsive overrides need !important */
+@media (max-width: 860px) {
+  .payment-main-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .payment-summary-card {
+    position: static !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .payment-kyc-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  /* children use inline `span 2`, which would add an implicit second column */
+  .payment-kyc-grid > * {
+    grid-column: 1 / -1 !important;
+  }
+  .payment-method-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Admin dashboard: layout is inline-styled, so responsive overrides need !important */
+.admin-table-card {
+  overflow-x: auto !important;
+}
+
+.admin-table-card td > span {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.admin-tab-header {
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+@media (max-width: 1200px) {
+  .admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .admin-topbar {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 16px !important;
+  }
+  .admin-body {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  /* Sidebar becomes a horizontally scrolling tab strip above the content */
+  .admin-sidebar {
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 12px 16px !important;
+  }
+  .admin-sidebar nav {
+    flex-direction: row !important;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .admin-sidebar nav > button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .admin-sidebar > :not(nav) {
+    display: none;
+  }
+  .admin-main {
+    padding: 20px 16px !important;
+  }
+  .admin-main h1 {
+    font-size: 1.4rem !important;
+  }
+  .admin-table-card table {
+    min-width: 760px;
+  }
+}
+
+@media (max-width: 600px) {
+  .admin-kpi-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
 }
